@@ -1,0 +1,30 @@
+{
+  "name": "free-pi-cli",
+  "version": "0.2.1",
+  "description": "Free, ad-supported distribution of the pi coding agent. Inference paid for by ads.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "free-pi-cli": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --target=node --outdir dist --external @earendil-works/pi-coding-agent --banner '#!/usr/bin/env node' && chmod +x dist/index.js",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.84.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typebox": "^1.3.7",
+    "zod": "^4.4.3"
+  }
+}

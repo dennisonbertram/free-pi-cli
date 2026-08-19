@@ -16,6 +16,18 @@ signed-in token live under `~/.free-pi/agent`, kept separate from any existing
 > **Early access.** free-pi is an experiment, not a finished product. Expect
 > rough edges and changes. See [freepi.ai](https://freepi.ai) for status.
 
+## Commands
+
+```
+free-pi-cli            start the coding agent
+free-pi-cli logout     remove the stored sign-in token; the next run signs in again
+free-pi-cli --version  print the CLI version
+free-pi-cli --help     usage
+```
+
+`logout` is purely local (it deletes `~/.free-pi/agent/credentials.json` and
+never contacts the server), so it also works offline.
+
 ## The one hard promise: ad content never enters the model's context
 
 Ads are shown in your terminal, next to the chat — never inside it. Ad copy is

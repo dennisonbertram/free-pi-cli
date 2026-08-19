@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { openBrowser } from "./browser";
 import { readAutoUpdate } from "./cli-config";
@@ -6,15 +5,10 @@ import { resolveBaseUrl } from "./env";
 import { getConfigPath, getCredentialsPath, getFreePiAgentDir } from "./paths";
 import { launchPi } from "./pi-launch";
 import { promptConsentInteractive } from "./prompt";
+import { createRealSpawn } from "./real-spawn";
 import { run } from "./run";
-import { maybeSelfUpdate, type SpawnResult } from "./self-update";
+import { maybeSelfUpdate } from "./self-update";
 import { checkClientVersion } from "./update-check";
-
-/** Real `spawn` dep for self-update.ts: sync + bounded timeout, never sudo. */
-function realSpawn(cmd: string, args: string[], opts: { timeout: number }): SpawnResult {
-  const result = spawnSync(cmd, args, { timeout: opts.timeout, encoding: "utf8" });
-  return { status: result.status, stdout: result.stdout ?? "", error: result.error };
-}
 
 /** Resolves symlinks (npm's global bin shim) so the path-boundary check in self-update.ts is meaningful. */
 function resolveCliRealpath(): string {
@@ -42,7 +36,7 @@ async function main(): Promise<void> {
       maybeSelfUpdate(action, latest, {
         env: process.env,
         autoUpdateEnabled: () => readAutoUpdate(getConfigPath()),
-        spawn: realSpawn,
+        spawn: createRealSpawn(),
         cliRealpath: resolveCliRealpath(),
         log: (message) => console.log(message),
       }),

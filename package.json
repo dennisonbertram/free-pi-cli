@@ -17,6 +17,7 @@
   "scripts": {
     "build": "bun build src/index.ts --target=node --outdir dist --external @earendil-works/pi-coding-agent --banner '#!/usr/bin/env node' && chmod +x dist/index.js",
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
+    "typescript": "^5.9.3",
     "typebox": "^1.3.7",
     "zod": "^4.4.3"
   }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { join, sep } from "node:path";
 import { maybeSelfUpdate, type SelfUpdateDeps, type SpawnResult } from "../src/self-update";
 
 /** Records every spawn call so tests can assert an install was (or was NOT) attempted. */
@@ -11,8 +12,11 @@ function spawnRecorder(script: (cmd: string, args: string[]) => SpawnResult) {
   return { spawn, calls };
 }
 
-const NPM_ROOT_OK = "/opt/homebrew/lib/node_modules";
-const CLI_REALPATH_GLOBAL = `${NPM_ROOT_OK}/free-pi-cli/dist/index.js`;
+// Built with join/sep (not literal "/") because the code under test does a
+// path.sep boundary check — on a Windows runner a posix-literal fixture would
+// never match and every happy-path test here would fail.
+const NPM_ROOT_OK = join(sep, "opt", "homebrew", "lib", "node_modules");
+const CLI_REALPATH_GLOBAL = join(NPM_ROOT_OK, "free-pi-cli", "dist", "index.js");
 
 function happyPathSpawn(): (cmd: string, args: string[]) => SpawnResult {
   return (_cmd, args) => {
@@ -72,7 +76,7 @@ describe("maybeSelfUpdate (#37 U1) — every gate falls back with NO install spa
     const outcome = await maybeSelfUpdate(
       "notice",
       "0.3.0",
-      baseDeps({ spawn, cliRealpath: "/Users/dev/free-pi/packages/cli/dist/index.js" }),
+      baseDeps({ spawn, cliRealpath: join(sep, "Users", "dev", "free-pi", "packages", "cli", "dist", "index.js") }),
     );
     expect(outcome).toBe("notice");
     // "npm root -g" is still checked (that's how we learn it's not global) but install is not.
@@ -87,7 +91,7 @@ describe("maybeSelfUpdate (#37 U1) — every gate falls back with NO install spa
     const outcome = await maybeSelfUpdate(
       "notice",
       "0.3.0",
-      baseDeps({ spawn, cliRealpath: `${NPM_ROOT_OK}-evil/free-pi-cli/dist/index.js` }),
+      baseDeps({ spawn, cliRealpath: join(`${NPM_ROOT_OK}-evil`, "free-pi-cli", "dist", "index.js") }),
     );
     expect(outcome).toBe("notice");
     expect(calls.some((c) => c.args[0] === "install")).toBe(false);

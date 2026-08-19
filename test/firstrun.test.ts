@@ -284,8 +284,13 @@ describe("device flow login", () => {
 
     expect(code1).toBe(0);
     expect(launchedJwt).toBe(ISSUED_TOKEN);
-    const mode = statSync(credentialsPath).mode & 0o777;
-    expect(mode).toBe(0o600);
+    // Windows has no posix permission bits (chmod there only toggles the
+    // read-only flag, and stat reports 0o666), so the 0600 invariant is only
+    // assertable — and only meaningful — on posix.
+    if (process.platform !== "win32") {
+      const mode = statSync(credentialsPath).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
 
     let promptCalledOnSecondRun = false;
     const code2 = await run(

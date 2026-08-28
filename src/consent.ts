@@ -13,6 +13,17 @@ Decline and nothing is sent to the free-pi server.
 
 export const CONSENT_VERSION = "1";
 
+/**
+ * Shown instead of the consent screen when stdin is not a TTY. Consent is a
+ * deliberate, interactive act (it covers ads AND training on sessions), so a
+ * non-interactive run cannot accept it — and must not hang waiting for an
+ * answer that piped/CI stdin will never deliver.
+ */
+export const NON_INTERACTIVE_CONSENT_TEXT =
+  "free-pi first-run consent needs an interactive terminal (stdin is not a TTY). " +
+  "Run `npx free-pi-cli` in a terminal once to review and accept; " +
+  "after that, non-interactive runs work.";
+
 export const CONSENT_PROMPT = "Accept? [y/N] ";
 
 export function parseConsentAnswer(answer: string): boolean {

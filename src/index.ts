@@ -1,78 +1,26 @@
-import { realpathSync } from "node:fs";
-import { openBrowser } from "./browser";
-import { HELP_TEXT, parseCliArgs, versionLine } from "./cli-args";
-import { readAutoUpdate } from "./cli-config";
-import { clearJwt, loadJwt } from "./credentials";
-import { runLogout } from "./logout";
-import { resolveBaseUrl } from "./env";
-import { getConfigPath, getCredentialsPath, getFreePiAgentDir } from "./paths";
-import { launchPi } from "./pi-launch";
-import { promptConsentInteractive } from "./prompt";
-import { createRealSpawn } from "./real-spawn";
-import { run } from "./run";
-import { maybeSelfUpdate } from "./self-update";
-import { checkClientVersion } from "./update-check";
+// Bin entry SHIM. This runs the Node-capability guard BEFORE any static import
+// that would load undici.
+//
+// Why a shim and not a check inside main(): `run.ts` / `pi-launch.ts` do *value*
+// imports from `@earendil-works/pi-coding-agent`, which loads undici@8.9.0 at
+// module-load time. ES-module imports are hoisted, so on an old Node undici's own
+// load crashes (e.g. `webidl.util.markAsUncloneable` on Node 20) — or, one notch
+// newer, it loads fine but later crashes on `zlib.createZstdDecompress` — BEFORE
+// any guard placed in main() could run. This bit us in 0.2.3, which put the guard
+// in main() and so only caught the zstd window, not the older undici-load crash.
+//
+// This module imports ONLY `node:zlib` + `./node-check` (neither loads undici), so
+// it evaluates cleanly on ANY Node. It checks zstd support, prints a friendly
+// message and exits on failure, and only then dynamically imports the real CLI —
+// which is when undici finally loads, on a runtime we've confirmed can handle it.
+import * as zlib from "node:zlib";
+import { zstdSupportError } from "./node-check";
 
-/** Resolves symlinks (npm's global bin shim) so the path-boundary check in self-update.ts is meaningful. */
-function resolveCliRealpath(): string {
-  try {
-    return realpathSync(process.argv[1] ?? "");
-  } catch {
-    // Fail safe: an empty string never matches (or prefixes) a real `npm root -g` path.
-    return "";
-  }
-}
-
-async function main(): Promise<void> {
-  // Local commands dispatch before run(): none of these contact the server,
-  // so the consent/privacy invariants of the run() flow are never in play.
-  const command = parseCliArgs(process.argv.slice(2));
-  if (command.kind === "version") {
-    console.log(versionLine());
-    process.exit(0);
-  }
-  if (command.kind === "help") {
-    console.log(HELP_TEXT);
-    process.exit(0);
-  }
-  if (command.kind === "unknown") {
-    console.error(`free-pi-cli: unknown argument "${command.arg}"\n\n${HELP_TEXT}`);
-    process.exit(2);
-  }
-  if (command.kind === "logout") {
-    const logoutCode = await runLogout({
-      credentialsPath: getCredentialsPath(),
-      loadJwt,
-      clearJwt,
-      log: (message) => console.log(message),
-    });
-    process.exit(logoutCode);
-  }
-
-  const agentDir = getFreePiAgentDir();
-  const code = await run({
-    baseUrl: resolveBaseUrl(),
-    agentDir,
-    credentialsPath: getCredentialsPath(agentDir),
-    promptConsent: promptConsentInteractive,
-    openBrowser,
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    launchPi,
-    log: (message) => console.log(message),
-    checkClientVersion,
-    maybeSelfUpdate: (action, latest) =>
-      maybeSelfUpdate(action, latest, {
-        env: process.env,
-        autoUpdateEnabled: () => readAutoUpdate(getConfigPath()),
-        spawn: createRealSpawn(),
-        cliRealpath: resolveCliRealpath(),
-        log: (message) => console.log(message),
-      }),
-  });
-  process.exit(code);
-}
-
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : String(err));
+const err = zstdSupportError(zlib, process.versions.node);
+if (err) {
+  console.error(err);
   process.exit(1);
-});
+}
+
+// Guard passed: load the real CLI (this is where undici gets pulled in).
+await import("./main");

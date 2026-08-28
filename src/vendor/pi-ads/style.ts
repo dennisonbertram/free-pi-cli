@@ -55,8 +55,12 @@ function pad(text: string, width: number): string {
 /**
  * OSC 8 hyperlink. Terminals that support OSC 8 render `text` as clickable;
  * terminals that don't simply ignore the invisible control bytes and show
- * `text` as-is — which is why `text` is always the visible click URL itself
- * (plain-URL fallback is automatic, not a separate code path).
+ * `text` as-is. We deliberately make `text` the human CTA (which names the
+ * destination, e.g. "get the skill @ slop.cash") rather than the raw click
+ * URL: the click URL is a long, random `/c/<token>` tracking redirect that
+ * looks untrustworthy in the terminal and suppresses the click (first paid-ad
+ * feedback, 2026-08-18, #61). Clickable where OSC 8 is supported; a clean,
+ * legible destination where it is not.
  */
 function osc8(text: string, url: string): string {
   return `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`;
@@ -98,7 +102,10 @@ export function renderAdCard(
     theme.fg("borderAccent", top),
     row(headline, { bold: true }),
     row(body),
-    row(`▸ ${cta}  ${url}`, { linkUrl: url }),
+    // #61: link the CTA (which names the destination) — never show the raw
+    // /c/<token> tracker URL as visible text. `url` stays the OSC-8 target so
+    // click-tracking/billing is preserved.
+    row(`▸ ${cta}`, { linkUrl: url }),
     theme.fg("borderAccent", bottom),
   ];
 }
@@ -113,7 +120,9 @@ export function renderPlainAdLine(
   const headline = sanitizeText(creative.headline);
   const cta = sanitizeText(creative.cta);
   const url = sanitizeText(clickUrl);
-  const plain = truncate(`AD ▚ ${headline} — ${cta} ${url}`, Math.max(10, columns - 2));
+  // #61: same as the card — the CTA carries the destination; the raw tracker
+  // URL is the OSC-8 target only, never visible text.
+  const plain = truncate(`AD ▚ ${headline} — ${cta}`, Math.max(10, columns - 2));
   return theme.fg("dim", osc8(plain, url));
 }
 

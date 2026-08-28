@@ -5,6 +5,8 @@ free-pi — before you start
   * A persistent ad banner and occasional inline ad cards render in the
     terminal UI. Ad content never enters the model's context.
   * Your coding sessions may be used to train models.
+  * If GitHub email capture is enabled, we collect your GitHub email and may
+    use it to contact you about the service or product.
   * free-pi-cli auto-updates itself when a new version is available. Disable
     with FREEPI_NO_AUTO_UPDATE or {"autoUpdate":false} in ~/.free-pi/config.json.
 

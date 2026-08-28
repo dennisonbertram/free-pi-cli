@@ -104,6 +104,7 @@ describe("sandbox gate (KTD9 / R5) — ad content must never enter model context
     const ext = createAdsExtension({
       baseUrl: "https://api.test",
       getToken: () => "jwt",
+      sessionId: "session-test",
       fetchImpl: stubFetch(),
     }) as { name: string; factory: (pi: ExtensionAPI) => void };
     ext.factory(pi);

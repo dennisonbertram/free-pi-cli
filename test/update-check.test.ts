@@ -65,4 +65,34 @@ describe("checkClientVersion (#37)", () => {
       expect(await checkClientVersion("https://api.test", "0.0.1", fetchImpl)).toEqual({ action: "ok" });
     });
   });
+
+  describe("trial: model + notice threaded through", () => {
+    test("ok response surfaces server model + notice", async () => {
+      const fetchImpl = fakeFetch(() =>
+        Response.json({ min: "0.1.0", latest: "0.3.0", model: "Ox Alpha", notice: "trial notice" }),
+      );
+      expect(await checkClientVersion("https://api.test", "0.3.0", fetchImpl)).toEqual({
+        action: "ok",
+        model: "Ox Alpha",
+        notice: "trial notice",
+      });
+    });
+
+    test("notice rides along on a 'notice' (update-available) action too", async () => {
+      const fetchImpl = fakeFetch(() =>
+        Response.json({ min: "0.1.0", latest: "0.3.0", model: "Ox Alpha", notice: "trial notice" }),
+      );
+      expect(await checkClientVersion("https://api.test", "0.2.0", fetchImpl)).toEqual({
+        action: "notice",
+        latest: "0.3.0",
+        model: "Ox Alpha",
+        notice: "trial notice",
+      });
+    });
+
+    test("plain {min,latest} stays exactly {action} — no undefined keys leak", async () => {
+      const fetchImpl = fakeFetch(() => Response.json({ min: "0.1.0", latest: "0.3.0" }));
+      expect(await checkClientVersion("https://api.test", "0.3.0", fetchImpl)).toEqual({ action: "ok" });
+    });
+  });
 });

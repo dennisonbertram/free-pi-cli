@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { saveJwt } from "../src/credentials";
 import { DEFAULT_BASE_URL, resolveBaseUrl } from "../src/env";
+import { createSessionManager } from "../src/pi-launch";
 import { buildProviderConfig, MODEL_ID } from "../src/provider";
 import { CLI_VERSION } from "../src/version";
 import { run, type RunDeps } from "../src/run";
 import { pollForToken, startDeviceFlow } from "../src/auth-flow";
+import { INTRO_TEXT, introSkipped, showIntro } from "../src/onboarding";
 
 const USER_CODE = "ABCD-1234";
 const VERIFICATION_URI = "https://github.com/login/device";
@@ -130,6 +132,208 @@ describe("first-run consent", () => {
     expect(selfUpdateCalled).toBe(false);
     expect(stub.requests.length).toBe(0);
     stub.stop();
+  });
+});
+
+describe("#63 first-run onboarding intro", () => {
+  test("shows the intro on first run, above the login instructions", async () => {
+    const stub = startStub();
+    const dir = tempDir();
+    const logs: string[] = [];
+
+    const code = await run(
+      baseDeps({
+        baseUrl: stub.url,
+        agentDir: dir,
+        credentialsPath: join(dir, "credentials.json"),
+        log: (m) => logs.push(m),
+      }),
+    );
+
+    expect(code).toBe(0);
+    const combined = logs.join("\n");
+    expect(combined).toContain("Welcome to free-pi");
+    // Must appear BEFORE the device-login line the user has to read, so it
+    // survives the pi TUI taking over the screen.
+    const introIdx = combined.indexOf("Welcome to free-pi");
+    const loginIdx = combined.indexOf(USER_CODE);
+    expect(introIdx).toBeGreaterThanOrEqual(0);
+    expect(loginIdx).toBeGreaterThan(introIdx);
+    stub.stop();
+  });
+
+  test("a returning user (JWT on disk) does not see the intro", async () => {
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "test-jwt");
+    const logs: string[] = [];
+
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://127.0.0.1:1",
+        agentDir: dir,
+        credentialsPath,
+        launchPi: async () => "final-session",
+        log: (m) => logs.push(m),
+      }),
+      ["node", "free-pi-cli"],
+    );
+
+    expect(code).toBe(0);
+    expect(logs.join("\n")).not.toContain("Welcome to free-pi");
+  });
+
+  test("FREEPI_NO_INTRO suppresses it; default shows the full text (unit)", () => {
+    const skipped: string[] = [];
+    showIntro((m) => skipped.push(m), { FREEPI_NO_INTRO: "1" } as unknown as NodeJS.ProcessEnv);
+    expect(skipped).toHaveLength(0);
+
+    const shown: string[] = [];
+    showIntro((m) => shown.push(m), {} as unknown as NodeJS.ProcessEnv);
+    expect(shown.join("")).toContain(INTRO_TEXT);
+  });
+
+  test("introSkipped reads the env flag", () => {
+    expect(introSkipped({ FREEPI_NO_INTRO: "1" } as unknown as NodeJS.ProcessEnv)).toBe(true);
+    expect(introSkipped({ FREEPI_NO_INTRO: "true" } as unknown as NodeJS.ProcessEnv)).toBe(true);
+    expect(introSkipped({} as unknown as NodeJS.ProcessEnv)).toBe(false);
+    expect(introSkipped({ FREEPI_NO_INTRO: "0" } as unknown as NodeJS.ProcessEnv)).toBe(false);
+  });
+});
+
+describe("--session parsing", () => {
+  test("passes a valid session id to launchPi", async () => {
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "test-jwt");
+    let launchedSession: string | undefined;
+
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://127.0.0.1:1",
+        agentDir: dir,
+        credentialsPath,
+        launchPi: async (opts) => {
+          launchedSession = opts.session;
+          return "final-session";
+        },
+      }),
+      ["node", "free-pi-cli", "--session", "session-1"],
+    );
+
+    expect(code).toBe(0);
+    expect(launchedSession).toBe("session-1");
+  });
+
+  test("rejects an invalid session id before contacting the server", async () => {
+    const logs: string[] = [];
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://unused.test",
+        agentDir: tempDir(),
+        credentialsPath: join(tempDir(), "credentials.json"),
+        log: (message) => logs.push(message),
+        launchPi: async () => {
+          throw new Error("must not launch");
+        },
+      }),
+      ["node", "free-pi-cli", "--session", "bad session"],
+    );
+
+    expect(code).toBe(1);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain("Invalid --session value");
+  });
+
+  test("rejects a missing session value", async () => {
+    const logs: string[] = [];
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://unused.test",
+        agentDir: tempDir(),
+        credentialsPath: join(tempDir(), "credentials.json"),
+        log: (message) => logs.push(message),
+      }),
+      ["node", "free-pi-cli", "--session"],
+    );
+
+    expect(code).toBe(1);
+    expect(logs).toEqual(["Missing value for --session"]);
+  });
+
+  test("without the flag, launchPi receives no session id", async () => {
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "test-jwt");
+    let launchedSession: string | undefined = "unexpected";
+
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://127.0.0.1:1",
+        agentDir: dir,
+        credentialsPath,
+        launchPi: async (opts) => {
+          launchedSession = opts.session;
+          return "final-session";
+        },
+      }),
+      ["node", "free-pi-cli"],
+    );
+
+    expect(code).toBe(0);
+    expect(launchedSession).toBeUndefined();
+  });
+});
+
+describe("session manager resolution", () => {
+  test("without an id, creates a new session in the explicit directory", async () => {
+    const cwd = tempDir();
+    const sessionDir = join(cwd, "sessions");
+    const created = {} as Awaited<ReturnType<typeof createSessionManager>>;
+    const api = {
+      list: async () => {
+        throw new Error("must not list");
+      },
+      open: () => {
+        throw new Error("must not open");
+      },
+      create: (createdCwd: string, createdSessionDir?: string) => {
+        expect(createdCwd).toBe(cwd);
+        expect(createdSessionDir).toBe(sessionDir);
+        return created;
+      },
+    };
+
+    expect(await createSessionManager(cwd, sessionDir, undefined, api)).toBe(created);
+  });
+
+  test("resolves an id through list and opens the matching path with the same directory", async () => {
+    const cwd = tempDir();
+    const sessionDir = join(cwd, "sessions");
+    const calls: string[] = [];
+    const opened = {} as Awaited<ReturnType<typeof createSessionManager>>;
+    const api = {
+      list: async (listedCwd: string, listedSessionDir?: string) => {
+        calls.push(`list:${listedCwd}:${listedSessionDir}`);
+        return [
+          {
+            id: "session-1",
+            path: "/tmp/session-1.jsonl",
+          },
+        ] as never;
+      },
+      open: (path: string, openedSessionDir?: string) => {
+        calls.push(`open:${path}:${openedSessionDir}`);
+        return opened;
+      },
+      create: () => {
+        throw new Error("must not create");
+      },
+    };
+
+    const result = await createSessionManager(cwd, sessionDir, "session-1", api);
+    expect(result).toBe(opened);
+    expect(calls).toEqual([`list:${cwd}:${sessionDir}`, `open:/tmp/session-1.jsonl:${sessionDir}`]);
   });
 });
 
@@ -364,9 +568,65 @@ describe("401 handling", () => {
   });
 });
 
+describe("trial: server-reported model + notice (run.ts)", () => {
+  test("prints the notice once and passes the model to launchPi", async () => {
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "test-jwt"); // returning user: skip login
+    const logs: string[] = [];
+    let launchedModel: string | undefined = "unset";
+
+    const code = await run(
+      baseDeps({
+        baseUrl: "http://127.0.0.1:1",
+        agentDir: dir,
+        credentialsPath,
+        log: (m) => logs.push(m),
+        checkClientVersion: async () => ({
+          action: "ok",
+          model: "Ox Alpha",
+          notice: "Ox Alpha trial: prompts are processed by a third-party preview model.",
+        }),
+        launchPi: async (opts) => {
+          launchedModel = opts.model;
+          return "final-session";
+        },
+      }),
+      ["node", "free-pi-cli"],
+    );
+
+    expect(code).toBe(0);
+    expect(launchedModel).toBe("Ox Alpha");
+    expect(
+      logs.some((l) => l.includes("Ox Alpha trial: prompts are processed by a third-party preview model.")),
+    ).toBe(true);
+  });
+
+  test("no notice line when the server sends none", async () => {
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "test-jwt");
+    const logs: string[] = [];
+
+    await run(
+      baseDeps({
+        baseUrl: "http://127.0.0.1:1",
+        agentDir: dir,
+        credentialsPath,
+        log: (m) => logs.push(m),
+        checkClientVersion: async () => ({ action: "ok" }),
+        launchPi: async () => "final-session",
+      }),
+      ["node", "free-pi-cli"],
+    );
+
+    expect(logs.some((l) => l.includes("third-party preview model"))).toBe(false);
+  });
+});
+
 describe("provider registration", () => {
   test("points at the configured base URL with the free-pi model", () => {
-    const config = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-1");
+    const config = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-1", [{ id: MODEL_ID, name: "DeepSeek V4 Flash" }]);
 
     // /v1 is appended because pi's openai-completions client (openai SDK)
     // appends /chat/completions to the base — verified live 2026-08-14.
@@ -379,17 +639,17 @@ describe("provider registration", () => {
   });
 
   test("#28 R19/KTD-3: threads sessionId through as a static x-session-id header", () => {
-    const a = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-a");
+    const a = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-a", [{ id: MODEL_ID, name: "DeepSeek V4 Flash" }]);
     // #37: x-client-version rides alongside x-session-id on every completion.
     expect(a.headers).toEqual({ "x-session-id": "session-a", "x-client-version": CLI_VERSION });
 
     // Stable across repeated calls with the same sessionId, different across
     // two different sessionIds — a process's identity is fixed for its
     // lifetime (KTD-3: generated once per launchPi() call).
-    const aAgain = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-a");
+    const aAgain = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-a", [{ id: MODEL_ID, name: "DeepSeek V4 Flash" }]);
     expect(aAgain.headers).toEqual(a.headers);
 
-    const b = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-b");
+    const b = buildProviderConfig("http://example.test:4321", "jwt-abc", "session-b", [{ id: MODEL_ID, name: "DeepSeek V4 Flash" }]);
     expect(b.headers).not.toEqual(a.headers);
   });
 });

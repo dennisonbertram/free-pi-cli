@@ -1,6 +1,6 @@
 // #37 U1: in-place self-update. No re-exec (Node has no execve) — a
 // successful update lands on disk and applies next launch, exactly like
-// Claude Code / gemini-cli.
+// Claude Code / gemini-cli (see docs/research/37-cli-self-update-mechanics.md).
 // Every gate and every failure mode falls back to phase-1 behavior
 // (`fallback`) rather than throwing — this function must never crash or
 // block CLI startup, and must never run a real npm command outside of the

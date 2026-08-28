@@ -7,6 +7,8 @@ import type { AdNextResponse, AdSlot, MeResponse } from "@freepi/shared";
 export interface AdsDeps {
   baseUrl: string;
   getToken: () => string | Promise<string>;
+  /** Stable logical session id; omitted by older harness-only callers. */
+  sessionId?: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -26,6 +28,10 @@ async function authedFetch(deps: AdsDeps, path: string, init?: RequestInit): Pro
       ...(init?.headers ?? {}),
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      // x-session-id is a launch-time snapshot of the logical session; an in-TUI /new/resume change after launch is not reflected (known, out of scope).
+      ...(deps.sessionId && (path.startsWith("/ads/next") || path === "/ads/impression")
+        ? { "x-session-id": deps.sessionId }
+        : {}),
     },
   });
 }

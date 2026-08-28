@@ -15,6 +15,7 @@ export interface CreateAdsExtensionOptions {
   baseUrl: string;
   /** Reads the current JWT from the cli's credential store. May be async. */
   getToken: () => string | Promise<string>;
+  sessionId: string;
   fetchImpl?: typeof fetch;
 }
 
@@ -22,7 +23,12 @@ const BANNER_REFRESH_MS = 10 * 60 * 1000;
 
 /** Init function the cli calls with baseUrl + a token getter, decoupled from any credential-store detail. */
 export function createAdsExtension(opts: CreateAdsExtensionOptions): InlineExtension {
-  const deps: AdsDeps = { baseUrl: opts.baseUrl, getToken: opts.getToken, fetchImpl: opts.fetchImpl };
+  const deps: AdsDeps = {
+    baseUrl: opts.baseUrl,
+    getToken: opts.getToken,
+    sessionId: opts.sessionId,
+    fetchImpl: opts.fetchImpl,
+  };
   const config = loadConfig();
 
   return {

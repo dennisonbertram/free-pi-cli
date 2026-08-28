@@ -32,6 +32,8 @@ export function mapErrorCode(code: ErrorCode): string {
   switch (code) {
     case "daily_cap":
       return "out of free tokens today, resets at 00:00 UTC";
+    case "rolling_cap":
+      return "over the rolling spend cap on the free tier — wait for the Retry-After window";
     case "concurrent":
       return "only one request at a time on the free tier — wait for the current one to finish";
     case "concurrent_session":

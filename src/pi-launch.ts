@@ -10,14 +10,31 @@ import {
   type InlineExtension,
 } from "@earendil-works/pi-coding-agent";
 import { createAdsExtension } from "@freepi/pi-ads";
-import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS } from "./provider";
+import { join, resolve } from "node:path";
+import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
 import { createToolGuardExtension } from "./tool-guard";
+import { createFreePiCommandsExtension } from "./commands";
+import { resolveFreePiScope } from "./provider-lock";
 
 export interface LaunchOptions {
   baseUrl: string;
   jwt: string;
   agentDir: string;
+  session?: string;
+  /** Server-reported active model to display (falls back to MODEL_ID). */
+  model?: string;
+  /** #140: the selectable model catalog from /client-version. When present the
+   * picker offers all of them; empty/absent falls back to the single `model`. */
+  models?: CatalogModel[];
+}
+
+/** The models to register + scope the picker to: the server catalog when it
+ * sent one, else the single active model (back-compat with a plain response). */
+function catalogModelsFor(opts: LaunchOptions): CatalogModel[] {
+  if (opts.models && opts.models.length > 0) return opts.models;
+  const id = opts.model || MODEL_ID;
+  return [{ id, name: id }];
 }
 
 // #28 R20/R20a: the exact, closed set of tool names the shipped distro ever
@@ -48,10 +65,11 @@ export interface RuntimeBuildOptions {
  * when the bin actually runs, never in `bun test`.
  */
 export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): RuntimeBuildOptions {
+  const models = catalogModelsFor(opts);
   const providerExtension: InlineExtension = {
     name: "free-pi-provider",
     factory: (pi: ExtensionAPI) => {
-      pi.registerProvider(PROVIDER_NAME, buildProviderConfig(opts.baseUrl, opts.jwt, sessionId));
+      pi.registerProvider(PROVIDER_NAME, buildProviderConfig(opts.baseUrl, opts.jwt, sessionId, models));
     },
   };
 
@@ -60,6 +78,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   const adsExtension: InlineExtension = createAdsExtension({
     baseUrl: opts.baseUrl,
     getToken: () => opts.jwt,
+    sessionId,
   });
 
   // U5 (#17): read-only "what's my usage" tool. Outside packages/pi-ads on
@@ -77,19 +96,35 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     allowedTools: ALLOWED_TOOL_NAMES,
   });
 
-  // Closed, four-item list — SB1's structural test fails if a future edit
-  // adds a fifth extension or drops one of these. Settings deliberately omit
+  // 0.2.6: free-pi's slash commands — /close-other-session, /whats-new, /update.
+  // A dedicated extension rather than folding into usage-tool (which stays
+  // read-only).
+  const commandsExtension: InlineExtension = createFreePiCommandsExtension({
+    baseUrl: opts.baseUrl,
+    getToken: () => opts.jwt,
+  });
+
+  // Closed, FIVE-item list — SB1's structural test fails if a future edit
+  // adds a sixth extension or drops one of these. Settings deliberately omit
   // `packages` (no pi-packages installed, so no MCP adapter / subagent
   // extension can be pulled in) and pin `defaultTools` to the built-in tool
   // set (never includes a subagent/background-bash/MCP tool per pi's own
   // docs — see provider.ts). Pi ships with none of those by default, so
   // there is nothing else to turn off — free-pi-cli's job is to never opt
   // back into them.
-  const extensionFactories = [providerExtension, adsExtension, usageToolExtension, toolGuardExtension];
+  const extensionFactories = [
+    providerExtension,
+    adsExtension,
+    usageToolExtension,
+    toolGuardExtension,
+    commandsExtension,
+  ];
 
   const settingsManager = SettingsManager.inMemory({
     defaultProvider: PROVIDER_NAME,
-    defaultModel: MODEL_ID,
+    // The picker starts on the first catalog model (the server lists the
+    // default first); the user switches with /model.
+    defaultModel: models[0]!.id,
     defaultTools: [...SAFE_TOOLS],
     packages: [],
   });
@@ -108,15 +143,45 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
  * real pi SDK integration below is exercised only when the bin is actually
  * run, never in `bun test` (starting the real TUI needs a real terminal).
  */
-export async function launchPi(opts: LaunchOptions): Promise<void> {
-  // #28 R19 (KTD-3): one stable id for the lifetime of this OS process,
-  // threaded to the server as x-session-id (provider.ts) on every
-  // completion so the server can tell "one session, many turns" apart from
-  // "a second session on the same JWT."
-  const sessionId = crypto.randomUUID();
-  const { settingsManager, resourceLoaderOptions, tools } = buildRuntimeOptions(opts, sessionId);
+function getSessionDir(cwd: string, agentDir: string): string {
+  const resolvedCwd = resolve(cwd);
+  const safePath = `--${resolvedCwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+  return join(resolve(agentDir), "sessions", safePath);
+}
 
+export interface SessionManagerApi {
+  create: typeof SessionManager.create;
+  open: typeof SessionManager.open;
+  list: typeof SessionManager.list;
+}
+
+/** Resolves the requested logical session using one explicit session directory. */
+export async function createSessionManager(
+  cwd: string,
+  sessionDir: string,
+  sessionId: string | undefined,
+  api: SessionManagerApi = SessionManager,
+): Promise<SessionManager> {
+  if (sessionId) {
+    const infos = await api.list(cwd, sessionDir);
+    const info = infos.find((session) => session.id === sessionId);
+    if (!info) {
+      throw new Error(`No session found matching '${sessionId}' in this directory`);
+    }
+    return api.open(info.path, sessionDir);
+  }
+  return api.create(cwd, sessionDir);
+}
+
+export async function launchPi(opts: LaunchOptions): Promise<string> {
   const cwd = process.cwd();
+  const sessionDir = getSessionDir(cwd, opts.agentDir);
+  const sm = await createSessionManager(cwd, sessionDir, opts.session);
+
+  // The pi logical session id is the lease key shared by the provider and ads.
+  const sessionId = sm.getSessionId();
+  const scopeIds = catalogModelsFor(opts).map((m) => m.id);
+  const { settingsManager, resourceLoaderOptions, tools } = buildRuntimeOptions(opts, sessionId);
 
   const createRuntime: CreateAgentSessionRuntimeFactory = async ({
     cwd: rtCwd,
@@ -129,12 +194,16 @@ export async function launchPi(opts: LaunchOptions): Promise<void> {
       settingsManager,
       resourceLoaderOptions,
     });
+    // Lock the model picker to just the free-pi catalog models — pi's own
+    // model-scope, no env vars touched. See provider-lock.ts.
+    const scopedModels = resolveFreePiScope(services.modelRuntime, PROVIDER_NAME, scopeIds);
     return {
       ...(await createAgentSessionFromServices({
         services,
         sessionManager,
         sessionStartEvent,
         tools: [...tools],
+        scopedModels,
       })),
       services,
       diagnostics: services.diagnostics,
@@ -144,7 +213,7 @@ export async function launchPi(opts: LaunchOptions): Promise<void> {
   const runtime = await createAgentSessionRuntime(createRuntime, {
     cwd,
     agentDir: opts.agentDir,
-    sessionManager: SessionManager.create(cwd),
+    sessionManager: sm,
   });
 
   const mode = new InteractiveMode(runtime, {
@@ -153,4 +222,5 @@ export async function launchPi(opts: LaunchOptions): Promise<void> {
   });
 
   await mode.run();
+  return sm.getSessionId();
 }

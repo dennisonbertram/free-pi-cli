@@ -34,11 +34,8 @@ export function completionsBaseUrl(baseUrl: string): string {
 }
 
 /**
- * #28 R19 (client half, KTD-3): `sessionId` is generated once per process by
- * pi-launch.ts (crypto.randomUUID(), not tied to pi's own SessionManager —
- * a resumed conversation in a brand-new process still gets a brand-new
- * sessionId, which is correct: it IS a new process and must acquire/steal
- * the session lease like any other). Threaded through as a static header
+ * #28 R19 (client half, KTD-3): `sessionId` is the pi logical session id
+ * selected once at launch by pi-launch.ts. Threaded through as a static header
  * (ProviderConfig.headers, confirmed on the installed SDK's ProviderConfig
  * type) rather than a JWT claim: the JWT is a 90-day credential shared
  * across every process a user launches, so it cannot itself identify one
@@ -46,25 +43,40 @@ export function completionsBaseUrl(baseUrl: string): string {
  * x-session-id field (completions.ts already reads it for trace grouping)
  * to work for R19 enforcement too.
  */
-export function buildProviderConfig(baseUrl: string, jwt: string, sessionId: string): ProviderConfig {
+/** A selectable model from the server catalog (/client-version `models`). `id`
+ * is what the CLI sends as the request model; `name` is the picker label. */
+export interface CatalogModel {
+  id: string;
+  name: string;
+}
+
+export function buildProviderConfig(
+  baseUrl: string,
+  jwt: string,
+  sessionId: string,
+  // #140: the catalog of selectable models (id = request model the server
+  // resolves against model_catalog; name = picker label). The server forces the
+  // real upstream per request, so these are display/routing ids, not upstream
+  // model names.
+  models: CatalogModel[],
+): ProviderConfig {
   return {
     name: "free-pi",
     baseUrl: completionsBaseUrl(baseUrl),
     apiKey: jwt,
     api: "openai-completions",
-    // x-client-version rides alongside x-session-id on every completion so the
-    // server's forced-update gate can enforce a minimum CLI version.
+    // #37: x-client-version rides alongside x-session-id on every completion
+    // so the server's forced-update gate (apps/server/src/routes/completions.ts)
+    // can enforce minCliVersion.
     headers: { "x-session-id": sessionId, "x-client-version": CLI_VERSION },
-    models: [
-      {
-        id: MODEL_ID,
-        name: "DeepSeek V4 Flash (free-pi)",
-        reasoning: false,
-        input: ["text"],
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        contextWindow: 1_048_576,
-        maxTokens: 8192,
-      },
-    ],
+    models: models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      reasoning: false,
+      input: ["text"] as const,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      contextWindow: 1_048_576,
+      maxTokens: 8192,
+    })),
   };
 }

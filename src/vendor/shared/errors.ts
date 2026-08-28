@@ -1,5 +1,7 @@
 export const ERROR_CODES = [
   "daily_cap",
+  // #40: the per-user ROLLING 5h spend cap (supplements daily_cap above).
+  "rolling_cap",
   "concurrent",
   "concurrent_session",
   "context_ceiling",
@@ -26,11 +28,17 @@ export interface ErrorResponse {
 // mapping was specified upstream; 403 is a placeholder pending that unit.
 export const ERROR_HTTP_STATUS = {
   daily_cap: 429,
+  // #40: same shape as the other rate-based 429s (daily_cap/hourly_ceiling) —
+  // a Retry-After header accompanies the response (routes/completions.ts).
+  rolling_cap: 429,
   concurrent: 429,
   // #28 R19: a second session on the same JWT while the first's lease is
   // fresh. Deliberately a distinct code from "concurrent" (R11's one-live-
-  // stream check) — same HTTP status, different diagnosable message.
-  concurrent_session: 429,
+  // stream check). 409 Conflict, NOT 429 — this is a "you already hold a
+  // session" state, not a rate limit, so the client must NOT auto-retry it
+  // (a 429 made the pi SDK retry 3x and print the raw error 5 times — the
+  // first real bug report, 2026-08-18). A 409 surfaces once.
+  concurrent_session: 409,
   context_ceiling: 413,
   upstream_error: 502,
   global_cap: 503,

@@ -166,5 +166,24 @@ export type AdminStatsResponse = z.infer<typeof AdminStatsResponseSchema>;
 export const ClientVersionResponseSchema = z.object({
   min: z.string(),
   latest: z.string(),
+  // Trial display (optional): the active model name the CLI shows, and a
+  // one-line notice printed at startup (e.g. a data-handling disclosure during
+  // a free-model trial). Both server-driven + env-controlled so enabling a
+  // trial is a pure box-env toggle — no CLI release. Unset preserves today.
+  model: z.string().optional(),
+  notice: z.string().optional(),
+  // #140: the selectable model catalog. Each entry's `id` is what the CLI sends
+  // as the request model (the server resolves it against model_catalog); `name`
+  // is the picker label. Optional so a plain response still parses — the CLI
+  // falls back to the single `model` field.
+  models: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
 export type ClientVersionResponse = z.infer<typeof ClientVersionResponseSchema>;
+
+// ---- POST /session/reset (0.2.6: /close-other-session) ----
+
+export const SessionResetResponseSchema = z.object({
+  // true = a stuck lease was cleared; false = nothing was held (already free).
+  released: z.boolean(),
+});
+export type SessionResetResponse = z.infer<typeof SessionResetResponseSchema>;

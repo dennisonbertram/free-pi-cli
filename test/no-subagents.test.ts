@@ -13,9 +13,10 @@
 //   open at once, and every tool name it ever calls is in the allowed set.
 //
 // What this does NOT prove: that a user hasn't hand-edited their own local
-// `~/.free-pi/agent/extensions/` directory — that is a client-machine trust
-// boundary this project doesn't claim to close. The server-side session lease
-// is the backstop for that residual case, not this test.
+// `~/.free-pi/agent/extensions/` directory (see the plan's Gap Analysis) —
+// that is a client-machine trust boundary this project doesn't claim to
+// close. R19 (the session lease, apps/server/src/agent-sessions.ts) is the
+// server-side backstop for that residual case, not this test.
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,10 +39,13 @@ function baseOpts(baseUrl: string): LaunchOptions {
 }
 
 describe("closed extension list (#28 R20, SB1)", () => {
-  test("buildRuntimeOptions registers exactly the four known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the five known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
+    // 0.2.6: the closed set deliberately grew to five with free-pi-commands
+    // (the /close-other-session, /whats-new, /update slash commands). Any
+    // further addition must be a reviewed, deliberate edit — never accidental.
     expect([...opts.extensionNames].sort()).toEqual(
-      ["free-pi-ads", "free-pi-provider", "free-pi-tool-guard", "free-pi-usage-tool"].sort(),
+      ["free-pi-ads", "free-pi-commands", "free-pi-provider", "free-pi-tool-guard", "free-pi-usage-tool"].sort(),
     );
   });
 

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { loadConfig } from "@freepi/shared";
-import type { AdsDeps } from "./api";
+import { fetchAdNext, postImpression, type AdsDeps } from "./api";
 import { BANNER_WIDGET_ID, createBannerRenderer } from "./banner";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
 import { createInlineRenderer, INLINE_WIDGET_ID } from "./inline";
-import { sanitizeText } from "./style";
+import { renderAdCard, renderPlainAdLine, sanitizeText } from "./style";
 
 const config = loadConfig({}); // defaults: adInlineTurnFrequency=5, adMinColumns=60
 
@@ -40,8 +40,25 @@ const AD_BODY = {
 };
 
 function deps(fetchImpl: typeof fetch): AdsDeps {
-  return { baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl };
+  return { baseUrl: "https://api.test", getToken: () => "jwt", sessionId: "session-test", fetchImpl };
 }
+
+describe("session lease headers", () => {
+  test("sends the stable session id on ad next and impression requests", async () => {
+    const headers: Headers[] = [];
+    const fetchImpl = (async (_input: string, init?: RequestInit) => {
+      headers.push(new Headers(init?.headers));
+      return jsonResponse(AD_BODY);
+    }) as unknown as typeof fetch;
+
+    await fetchAdNext(deps(fetchImpl), "banner");
+    await postImpression(deps(fetchImpl), AD_BODY.ad_id, AD_BODY.click_token);
+
+    expect(headers).toHaveLength(2);
+    expect(headers[0]?.get("x-session-id")).toBe("session-test");
+    expect(headers[1]?.get("x-session-id")).toBe("session-test");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // (2) Sanitizer
@@ -75,9 +92,9 @@ describe("inline cadence", () => {
     let nextCalls = 0;
     const fetchImpl = (async (input: string) => {
       const url = new URL(input.toString());
-      // /ads/next always mints a fresh click_token server-side — mirror that
-      // here so turn 5 and turn 10 are two genuinely distinct impressions,
-      // not a repaint.
+      // /ads/next always mints a fresh click_token server-side (see
+      // apps/server/src/routes/ads.ts) — mirror that here so turn 5 and
+      // turn 10 are two genuinely distinct impressions, not a repaint.
       if (url.pathname === "/ads/next") {
         nextCalls += 1;
         return jsonResponse({ ...AD_BODY, click_token: `tok-${nextCalls}` });
@@ -248,5 +265,35 @@ describe("inferErrorFromRemainingBudget", () => {
 
   test("positive remaining budget infers no error", () => {
     expect(inferErrorFromRemainingBudget(1.23)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (8) #61: link the CTA, never show the raw /c/<token> tracker as visible text
+// ---------------------------------------------------------------------------
+
+describe("#61 ad link: CTA visible, tracker URL only as the OSC-8 target", () => {
+  const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
+  const creative = { headline: "H", body: "B", cta: "get the skill @ slop.cash", accent: "#fff" };
+  const clickUrl = "https://api.freepi.ai/c/8eb56276-fda6-4aae-a800-b40ad39abcde";
+  // Strip OSC-8 open (`ESC ] 8 ; ; <url> BEL`) + close so only visible text remains.
+  const stripOsc8 = (s: string) => s.replace(/\x1b\]8;;[^\x07]*\x07/g, "");
+
+  test("framed card shows the CTA, hides the raw tracker, keeps the link target", () => {
+    const lines = renderAdCard(creative, clickUrl, theme, 80);
+    const joined = lines.join("\n");
+    const visible = stripOsc8(joined);
+    expect(visible).toContain("get the skill @ slop.cash");
+    expect(visible).not.toContain("/c/");
+    expect(visible).not.toContain(clickUrl);
+    expect(joined).toContain(`\x1b]8;;${clickUrl}\x07`); // still clickable/tracked
+  });
+
+  test("narrow plain line does the same", () => {
+    const line = renderPlainAdLine(creative, clickUrl, theme, 80);
+    const visible = stripOsc8(line);
+    expect(visible).toContain("get the skill @ slop.cash");
+    expect(visible).not.toContain("/c/");
+    expect(line).toContain(`\x1b]8;;${clickUrl}\x07`);
   });
 });

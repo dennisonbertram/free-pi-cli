@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: this workflow only builds and tests. Nothing here writes to the
+# repo, so the default broader token is more authority than the job needs.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: test (${{ matrix.os }})

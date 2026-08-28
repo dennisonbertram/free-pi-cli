@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { spawn } from "node:child_process";
-import { buildOpenCommand, openBrowser } from "../src/browser";
+import { buildOpenCommand, openBrowser, safeBrowserUrl } from "../src/browser";
 
 /** Records every spawn call and returns an inert child, so no real process is ever launched. */
 function spawnRecorder(script?: () => ReturnType<typeof spawn>) {
@@ -75,5 +75,53 @@ describe("openBrowser — best-effort, never throws", () => {
       throw new Error("EPERM");
     });
     expect(() => openBrowser(URL_PLAIN, "linux", spawnImpl)).not.toThrow();
+  });
+});
+
+describe("safeBrowserUrl — the URL arrives from the server, so this is the gate", () => {
+  test.each([
+    ["https://github.com/login/device"],
+    ["http://localhost:8787/verify?code=abc&session=xyz"],
+  ])("%s -> allowed, returned normalized", (url) => {
+    expect(safeBrowserUrl(url)).toBe(new URL(url).href);
+  });
+
+  test.each([
+    ["file:///etc/passwd"],
+    ["javascript:alert(1)"],
+    ["data:text/html,<script>alert(1)</script>"],
+    ["vscode://install?x=1"],
+    ["not a url at all"],
+    [""],
+  ])("%p -> rejected (a non-http scheme handed to open/start is a launch primitive, not a link)", (url) => {
+    expect(safeBrowserUrl(url)).toBeNull();
+  });
+});
+
+describe("win32 command injection — server-supplied URL reaches cmd verbatim", () => {
+  // Measured, not assumed: WHATWG normalization encodes >, ^, " and space,
+  // but passes | ( ) through untouched — so escaping cannot be skipped.
+  test.each([["|"], ["("], [")"]])(
+    "%p survives URL normalization, so buildOpenCommand must escape it",
+    (char) => {
+      const url = `https://evil.example/x${char}y`;
+      expect(new URL(url).href).toContain(char);
+      expect(buildOpenCommand(new URL(url).href, "win32").args[3]).toContain(`^${char}`);
+    },
+  );
+
+  test("a piped payload is neutralized: every metacharacter is ^-escaped", () => {
+    const { args } = buildOpenCommand("https://evil.example/a|calc.exe&b>out.txt", "win32");
+    expect(args[3]).toBe("https://evil.example/a^|calc.exe^&b^>out.txt");
+  });
+
+  test("^ itself is escaped (it is cmd's escape character, so an unescaped one would consume the next char)", () => {
+    expect(buildOpenCommand("https://e.example/a^b", "win32").args[3]).toBe("https://e.example/a^^b");
+  });
+
+  test("openBrowser refuses a non-http URL outright — nothing is spawned", () => {
+    const { spawnImpl, calls } = spawnRecorder();
+    openBrowser("file:///etc/passwd", "win32", spawnImpl);
+    expect(calls).toEqual([]);
   });
 });

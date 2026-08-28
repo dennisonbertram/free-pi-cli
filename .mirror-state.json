@@ -1,0 +1,5 @@
+{
+  "note": "Written by scripts/sync-public-cli.ts in the free-pi monorepo. public_sha is the public commit the last sync was based on; the next sync refuses to run if anything touched src/, test/ or the docs since then without being ported back. Do not edit by hand.",
+  "public_sha": "cca077f0bd572016c4908aea90d86520101a9c04",
+  "source_version": "0.2.9"
+}

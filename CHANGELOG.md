@@ -5,6 +5,37 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.9] - 2026-08-28
+
+Windows fixes and the first cross-platform CI, all from community pull requests by
+[@andreolf](https://github.com/andreolf) on the public repo.
+
+### Fixed
+- **Windows: self-update never ran.** `npm` on Windows is `npm.cmd`, a batch file, and Node
+  refuses to spawn one without a shell. The resulting error was read as "not updatable", so every
+  Windows launch silently skipped the update since the feature shipped. The same bug made
+  `/update` fail too.
+- **Windows: sign-in never opened a browser.** `start` treats its first quoted argument as a
+  window title, so the sign-in URL opened an empty console window instead of a browser.
+- **Non-interactive runs no longer hang or silently do nothing.** With stdin piped from something
+  that never sends a line (CI, `cat | free-pi-cli`), first-run consent waited forever. With stdin
+  closed (`< /dev/null`) it printed the consent screen and exited 0 without consenting or
+  launching — a success that did nothing. Both now print one line explaining that consent needs a
+  terminal, and exit 1.
+
+### Added
+- `free-pi-cli logout` — removes the stored sign-in token; the next run signs in again. Purely
+  local, so it works offline. Note there is no server-side revoke: the token stays valid until it
+  expires.
+- `free-pi-cli --version` and `--help`.
+- An unrecognized argument now prints help and exits 2, instead of quietly starting a full agent
+  session on a typo.
+
+### Security
+- The sign-in URL is validated before it is handed to a shell. It arrives from the server and was
+  previously passed through with only `&` escaped, which on Windows left `|`, `(` and `)` able to
+  run a command. It must now parse as an http/https URL, and every shell metacharacter is escaped.
+
 ## [0.2.8] - 2026-08-22
 
 ### Added

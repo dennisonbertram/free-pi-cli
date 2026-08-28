@@ -1,6 +1,6 @@
 {
   "name": "free-pi-cli",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Free, ad-supported distribution of the pi coding agent. Inference paid for by ads.",
   "license": "MIT",
   "type": "module",

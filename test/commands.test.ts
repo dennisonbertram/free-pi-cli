@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
 import { closeOtherSession, runUpdate, showWhatsNew } from "../src/commands";
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
@@ -65,12 +66,28 @@ describe("/close-other-session (closeOtherSession)", () => {
 });
 
 describe("/whats-new (showWhatsNew)", () => {
-  test("prints recent changelog highlights", () => {
+  // Asserted against CHANGELOG_HIGHLIGHTS rather than hardcoded version
+  // strings: this test named 0.2.6 and so broke on every release, which
+  // teaches people to edit the assertion instead of reading it.
+  test("prints the three most recent entries, newest first", () => {
     const { ctx, notes } = notifyCtx();
     showWhatsNew(ctx);
     expect(notes).toHaveLength(1);
-    expect(notes[0]?.msg).toContain("free-pi 0.2.6");
-    expect(notes[0]?.msg).toContain("/close-other-session");
+    const expected = CHANGELOG_HIGHLIGHTS.slice(0, 3);
+    expect(expected.length).toBeGreaterThan(0);
+    for (const entry of expected) {
+      expect(notes[0]?.msg).toContain(`free-pi ${entry.version}:`);
+      for (const highlight of entry.highlights) {
+        expect(notes[0]?.msg).toContain(highlight);
+      }
+    }
+  });
+
+  test("stops at three entries even when more exist", () => {
+    const { ctx, notes } = notifyCtx();
+    showWhatsNew(ctx);
+    const shown = (notes[0]?.msg ?? "").split("\n").filter((l) => l.startsWith("free-pi "));
+    expect(shown).toHaveLength(Math.min(3, CHANGELOG_HIGHLIGHTS.length));
   });
 });
 

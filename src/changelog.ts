@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.9",
+    highlights: [
+      "Windows: self-update and browser sign-in actually work now — both had been broken since they shipped.",
+      "Running without a terminal (CI, piped input) now says so and exits, instead of hanging or quietly doing nothing.",
+      "New: `free-pi-cli logout`, `--version` and `--help`.",
+    ],
+  },
+  {
     version: "0.2.8",
     highlights: [
       "You can now pick between models — run /model to see the list and switch (when the server offers more than one).",

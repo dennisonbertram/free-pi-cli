@@ -15,7 +15,7 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "build": "bun build src/index.ts --target=node --outdir dist --splitting --external @earendil-works/pi-coding-agent --banner '#!/usr/bin/env node' && chmod +x dist/index.js",
+    "build": "rm -rf dist && bun build src/index.ts --target=node --outdir dist --splitting --external @earendil-works/pi-coding-agent --banner '#!/usr/bin/env node' && chmod +x dist/index.js",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"

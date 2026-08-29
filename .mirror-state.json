@@ -1,10 +1,10 @@
 {
   "note": "Written by scripts/sync-public-cli.ts in the free-pi monorepo. `files` is the sha256 of everything the last sync wrote; the next sync refuses to run if any of it changed here without being ported back into the monorepo. Do not edit by hand.",
-  "source_version": "0.2.9",
+  "source_version": "0.2.10",
   "files": {
     "src/auth-flow.ts": "ace83239e9e0a90bbae2ef128350fdfca221d58f5e6dafb6c01daed8a08124e2",
     "src/browser.ts": "4319c704b07bf5a635b42629457c246c7675f4445f47475cddbbac8a62eecb51",
-    "src/changelog.ts": "279af919bb9a5211f0926c26abf7331273b5fcd5ae0be0f346e21fd744ab6794",
+    "src/changelog.ts": "f98fe59e70f375e8e83d6facbe9157d521cf1b9fcd4f23774969bccc30509b5f",
     "src/cli-args.ts": "e8c5f0c1315bb125c684070328c66662048aa6ac882f2ce1610c541fa6a40886",
     "src/cli-config.ts": "1f64d7d8efe3f20ca0907dacf9b0e67bde6de8f987893f558e8c68e3e4ecd082",
     "src/commands.ts": "91ead83c99a0847aa8111a59115ce7a1856671bee685b208e07e61ecf5b7bc97",
@@ -60,7 +60,7 @@
     "src/vendor/shared/errors.ts": "aeac93d1f3ea36ab5904520b469aba3488ea8ce08a7b602e8afb3e8be1dffc79",
     "src/vendor/shared/version.ts": "3895280199012b003b9701369f137b16557a0f75f39257e1f1bcc1f670ddb98d",
     "README.md": "e66e5ce3b75dd78a91573a93e09752cb88eee449426728b9967ad72b2d515408",
-    "CHANGELOG.md": "54f3cca1f33df5247188a9329318d6170012b19971db7c2df360ddd41618ead2",
-    "package.json": "b4ec7a00dc0649a29f1a5e35d32626b5acffabbae39982b64ce6ce448791796b"
+    "CHANGELOG.md": "51121a3eed57500d442374167bc7f602f783d25488979bbb764c66dbb2c78c37",
+    "package.json": "d539dc37ce16f6cf30ac06ae62c727e17c25f5cc8b35f5adf5633aa00e49ebaf"
   }
 }

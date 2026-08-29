@@ -5,6 +5,19 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.10] - 2026-08-29
+
+### Changed
+- **free-pi now pins the exact agent version it was tested against.** The dependency on
+  `@earendil-works/pi-coding-agent` was a `^0.84.2` range, and because the build marks it
+  external it resolved on *your* machine at install time — so a fresh install was already
+  pulling 0.84.4, a version free-pi had never run a test against. Nobody chose that; npm did.
+  It is now pinned to `0.84.4` (tested: 178 CLI tests, typecheck, build, and a real session with
+  the ad banner, model-lock and all five extensions loaded). Adopting a newer agent is now a
+  deliberate release rather than something that happens to you.
+- A nightly CI canary runs the CLI against the *newest* agent release, so a breaking upstream
+  change shows up as a red job instead of a user's broken install.
+
 ## [0.2.9] - 2026-08-28
 
 Windows fixes and the first cross-platform CI, all from community pull requests by

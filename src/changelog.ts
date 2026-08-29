@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.10",
+    highlights: [
+      "free-pi now installs an exact, tested version of the underlying agent — an upstream release can no longer change your CLI without us testing it first.",
+    ],
+  },
+  {
     version: "0.2.9",
     highlights: [
       "Windows: self-update and browser sign-in actually work now — both had been broken since they shipped.",

@@ -24,6 +24,12 @@ function resolveCliRealpath(): string {
 }
 
 async function main(): Promise<void> {
+  // One resolution of the agent dir for the whole process: logout and run()
+  // below must name the same credentials file the same way (PR #3 review
+  // note — the bare getCredentialsPath() default resolved identically, but
+  // said one thing two ways).
+  const agentDir = getFreePiAgentDir();
+
   // Local commands dispatch before run(): none of these contact the server,
   // so the consent/privacy invariants of the run() flow are never in play.
   const command = parseCliArgs(process.argv.slice(2));
@@ -41,7 +47,7 @@ async function main(): Promise<void> {
   }
   if (command.kind === "logout") {
     const logoutCode = await runLogout({
-      credentialsPath: getCredentialsPath(),
+      credentialsPath: getCredentialsPath(agentDir),
       loadJwt,
       clearJwt,
       log: (message) => console.log(message),
@@ -49,7 +55,6 @@ async function main(): Promise<void> {
     process.exit(logoutCode);
   }
 
-  const agentDir = getFreePiAgentDir();
   const code = await run({
     baseUrl: resolveBaseUrl(),
     agentDir,

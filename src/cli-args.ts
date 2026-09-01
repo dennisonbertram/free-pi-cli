@@ -17,10 +17,11 @@ export const HELP_TEXT = `
 free-pi — free AI coding in your terminal; ads pay for the inference.
 
 Usage:
-  free-pi-cli            start the coding agent (first run: consent + GitHub sign-in)
-  free-pi-cli logout     remove the stored sign-in token; the next run signs in again
-  free-pi-cli --version  print the CLI version
-  free-pi-cli --help     show this help
+  free-pi-cli                 start the coding agent (first run: consent + GitHub sign-in)
+  free-pi-cli --session <id>  resume a previous session (the id prints when you exit)
+  free-pi-cli logout          remove the stored sign-in token; the next run signs in again
+  free-pi-cli --version       print the CLI version
+  free-pi-cli --help          show this help
 
 Environment:
   FREEPI_BASE_URL        override the backend base URL (default https://api.freepi.ai)
@@ -41,6 +42,15 @@ export function versionLine(): string {
 export function parseCliArgs(argv: readonly string[]): CliCommand {
   const [first, ...rest] = argv;
   if (first === undefined) return { kind: "run" };
+
+  // `--session <id>` belongs to the agent flow: run() owns both parsing and
+  // validation of the pair (parseSessionArg, including the missing-value
+  // message), so this gate's only job is to not eat it. Without this case
+  // the gate exited 2 on the exact command the onboarding intro and the
+  // session-ended exit line tell users to type.
+  if (first === "--session") {
+    return rest.length <= 1 ? { kind: "run" } : { kind: "unknown", arg: rest[1] as string };
+  }
 
   let kind: "help" | "version" | "logout";
   if (first === "--help" || first === "-h" || first === "help") kind = "help";

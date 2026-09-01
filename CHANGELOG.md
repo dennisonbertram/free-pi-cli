@@ -5,6 +5,20 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.11] - 2026-09-01
+
+### Added
+- **Buy more usage when the free daily cap is hit** (epic #221). A purchased credit balance
+  covers usage above the free allowance and persists across days. Packs: $5 → $4.00 of usage,
+  $10 → $8.00, paid by card or USDC through Stripe Checkout.
+- `free_pi_buy_credits` tool (#226): ask pi to buy credits and it opens the buy page in your
+  browser and prints the URL (for SSH sessions).
+- `free_pi_usage` now shows the purchased balance (#227).
+
+### Changed
+- The out-of-usage line in the meter is now server-supplied (#225), so the offer and link can
+  change without a CLI update. Against an older server the previous text is shown unchanged.
+
 ## [0.2.10] - 2026-08-29
 
 ### Changed

@@ -5,6 +5,7 @@ import { fetchAdNext, postImpression, type AdsDeps } from "./api";
 import { BANNER_WIDGET_ID, createBannerRenderer } from "./banner";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
 import { createInlineRenderer, INLINE_WIDGET_ID } from "./inline";
+import { METER_WIDGET_ID, renderMeter } from "./meter";
 import { renderAdCard, renderPlainAdLine, sanitizeText } from "./style";
 
 const config = loadConfig({}); // defaults: adInlineTurnFrequency=5, adMinColumns=60
@@ -295,5 +296,38 @@ describe("#61 ad link: CTA visible, tracker URL only as the OSC-8 target", () =>
     expect(visible).toContain("get the skill @ slop.cash");
     expect(visible).not.toContain("/c/");
     expect(line).toContain(`\x1b]8;;${clickUrl}\x07`);
+  });
+});
+
+describe("meter: server-supplied notice (#225)", () => {
+  function meFetch(body: Record<string, unknown>): typeof fetch {
+    return (async () => jsonResponse({ user_id: "u1", handle: "octocat", cap_usd_today: 5, tier: "established", ...body })) as unknown as typeof fetch;
+  }
+
+  test("a non-empty notice is rendered verbatim as the widget's one line, even with budget left", async () => {
+    const { ctx, widgetCalls } = fakeCtx();
+    const notice = "out of free usage today (established tier). Buy more at https://api.test/buy/tok — $5 or $10, card or USDC. Free usage resets at 00:00 UTC.";
+    await renderMeter(deps(meFetch({ remaining_usd_today: 0, notice })), ctx);
+    expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: [notice], options: undefined }]);
+  });
+
+  test("a notice is plain text: terminal control sequences are stripped, never interpreted", async () => {
+    const { ctx, widgetCalls } = fakeCtx();
+    await renderMeter(deps(meFetch({ remaining_usd_today: 0, notice: "buy \u001b]0;pwned\u0007more \u001b[31mnow\u001b[0m" })), ctx);
+    expect(widgetCalls[0]!.content).toEqual(["buy more now"]);
+  });
+
+  test("no notice + exhausted budget → the baked daily_cap string, byte-identical to before", async () => {
+    const { ctx, widgetCalls } = fakeCtx();
+    await renderMeter(deps(meFetch({ remaining_usd_today: 0 })), ctx);
+    expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: [mapErrorCode("daily_cap")], options: undefined }]);
+  });
+
+  test("no notice (or an empty one) + budget left → no widget, as before", async () => {
+    for (const body of [{ remaining_usd_today: 4.5 }, { remaining_usd_today: 4.5, notice: "" }, { remaining_usd_today: 4.5, notice: "   " }]) {
+      const { ctx, widgetCalls } = fakeCtx();
+      await renderMeter(deps(meFetch(body)), ctx);
+      expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: undefined, options: undefined }]);
+    }
   });
 });

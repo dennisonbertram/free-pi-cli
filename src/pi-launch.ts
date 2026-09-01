@@ -13,6 +13,7 @@ import { createAdsExtension } from "@freepi/pi-ads";
 import { join, resolve } from "node:path";
 import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
+import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
 import { createToolGuardExtension } from "./tool-guard";
 import { createFreePiCommandsExtension } from "./commands";
 import { resolveFreePiScope } from "./provider-lock";
@@ -38,15 +39,16 @@ function catalogModelsFor(opts: LaunchOptions): CatalogModel[] {
 }
 
 // #28 R20/R20a: the exact, closed set of tool names the shipped distro ever
-// legitimately runs — SAFE_TOOLS' built-ins plus the one registered custom
-// tool (free_pi_usage, U5). Used two ways, belt and braces (KTD-7 found
-// `defaultTools` alone does not block an extension-registered tool):
+// legitimately runs — SAFE_TOOLS' built-ins plus the two registered custom
+// tools (free_pi_usage, U5; free_pi_buy_credits, #226). Used two ways, belt
+// and braces (KTD-7 found `defaultTools` alone does not block an
+// extension-registered tool):
 //   1. Passed as `tools` to createAgentSessionFromServices — the SDK's own
 //      strict allowlist (docs/settings.md: same mechanism as the CLI's
 //      `--tools` flag, "only the listed tool names are enabled").
 //   2. Passed to the tool-guard extension, which blocks + reports anything
 //      outside this set that still somehow reaches a tool_call event.
-export const ALLOWED_TOOL_NAMES: readonly string[] = [...SAFE_TOOLS, USAGE_TOOL_NAME];
+export const ALLOWED_TOOL_NAMES: readonly string[] = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME];
 
 export interface RuntimeBuildOptions {
   settingsManager: SettingsManager;
@@ -88,6 +90,14 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
+  // #226: opens the server's buy-credits page. Outside packages/pi-ads on
+  // the same grounds as the usage tool (KTD5) — see buy-tool.ts's header
+  // comment.
+  const buyToolExtension: InlineExtension = createBuyToolExtension({
+    baseUrl: opts.baseUrl,
+    getToken: () => opts.jwt,
+  });
+
   // #28 R20a: defense-in-depth block + report for any tool outside
   // ALLOWED_TOOL_NAMES that somehow reaches a tool_call event.
   const toolGuardExtension: InlineExtension = createToolGuardExtension({
@@ -104,9 +114,9 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
-  // Closed, FIVE-item list — SB1's structural test fails if a future edit
-  // adds a sixth extension or drops one of these. Settings deliberately omit
-  // `packages` (no pi-packages installed, so no MCP adapter / subagent
+  // Closed, SIX-item list — SB1's structural test fails if a future edit
+  // adds a seventh extension or drops one of these. Settings deliberately
+  // omit `packages` (no pi-packages installed, so no MCP adapter / subagent
   // extension can be pulled in) and pin `defaultTools` to the built-in tool
   // set (never includes a subagent/background-bash/MCP tool per pi's own
   // docs — see provider.ts). Pi ships with none of those by default, so
@@ -116,6 +126,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     providerExtension,
     adsExtension,
     usageToolExtension,
+    buyToolExtension,
     toolGuardExtension,
     commandsExtension,
   ];

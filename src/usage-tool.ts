@@ -34,10 +34,14 @@ export const USAGE_TOOL_NAME = "free_pi_usage";
 
 const PARAMS = Type.Object({});
 
-function formatStats(stats: MeStatsResponse): string {
+export function formatStats(stats: MeStatsResponse): string {
+  // #227: credit_usd arrived with the #229 server; an older server omits it, so
+  // the line is guarded at runtime and the output is otherwise byte-identical.
+  const credit = (stats as Partial<MeStatsResponse>).credit_usd;
   return [
     `tier: ${stats.tier} (cap $${stats.cap_usd_today.toFixed(2)}/day)`,
     `today: spent $${stats.spent_usd_today.toFixed(4)}, remaining $${stats.remaining_usd_today.toFixed(4)}, ${stats.request_count_today} request(s)`,
+    ...(typeof credit === "number" ? [`credit: $${credit.toFixed(2)} purchased usage remaining`] : []),
     `today tokens: ${stats.prompt_tokens_today} prompt / ${stats.completion_tokens_today} completion`,
     `lifetime: spent $${stats.lifetime.spent_usd.toFixed(4)}, ${stats.lifetime.request_count} request(s), ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
   ].join("\n");

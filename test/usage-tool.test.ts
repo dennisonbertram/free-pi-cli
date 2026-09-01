@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { MeStatsResponse } from "@freepi/shared";
-import { createUsageToolExtension } from "../src/usage-tool";
+import { createUsageToolExtension, formatStats } from "../src/usage-tool";
 
 // Mirrors packages/pi-ads/src/sandbox.test.ts's fake-ExtensionAPI Proxy
 // harness: a Proxy that records every call instead of throwing on the
@@ -72,6 +72,7 @@ const STATS: MeStatsResponse = {
   cap_usd_today: 2,
   spent_usd_today: 0.5,
   remaining_usd_today: 1.5,
+  credit_usd: 0,
   request_count_today: 3,
   prompt_tokens_today: 120,
   completion_tokens_today: 60,
@@ -95,6 +96,31 @@ describe("createUsageToolExtension", () => {
     expect(result.content[0]!.text).toContain("1.5000"); // remaining_usd_today
     expect(result.content[0]!.text).toContain("young"); // tier
     expect(result.details).toEqual(STATS);
+  });
+
+  test("#227: credit_usd present → one added credit line; absent (old server) → output byte-identical to before", () => {
+    const { credit_usd: _omit, ...oldServer } = STATS;
+    const without = formatStats(oldServer as MeStatsResponse);
+    expect(without).toBe(
+      [
+        "tier: young (cap $2.00/day)",
+        "today: spent $0.5000, remaining $1.5000, 3 request(s)",
+        "today tokens: 120 prompt / 60 completion",
+        "lifetime: spent $4.2000, 12 request(s), 900 prompt / 400 completion tokens",
+      ].join("\n"),
+    );
+    expect(without).not.toContain("credit");
+
+    const withCredit = formatStats({ ...STATS, credit_usd: 3.5 });
+    expect(withCredit.split("\n")).toEqual([
+      "tier: young (cap $2.00/day)",
+      "today: spent $0.5000, remaining $1.5000, 3 request(s)",
+      "credit: $3.50 purchased usage remaining",
+      "today tokens: 120 prompt / 60 completion",
+      "lifetime: spent $4.2000, 12 request(s), 900 prompt / 400 completion tokens",
+    ]);
+    // credit_usd: 0 is still a number → the line shows $0.00 (the user bought nothing, or spent it all).
+    expect(formatStats(STATS)).toContain("credit: $0.00 purchased usage remaining");
   });
 
   test("a non-OK response produces a graceful text result, not a thrown error", async () => {

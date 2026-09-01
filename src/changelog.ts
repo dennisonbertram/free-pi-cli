@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.11",
+    highlights: [
+      "Out of free usage? You can now buy more — $5 or $10 packs, card or USDC. Ask pi to \"buy credits\" or follow the link in the out-of-usage notice.",
+      "The out-of-usage notice now comes from the server, and `free_pi_usage` shows your purchased balance.",
+    ],
+  },
+  {
     version: "0.2.10",
     highlights: [
       "free-pi now installs an exact, tested version of the underlying agent — an upstream release can no longer change your CLI without us testing it first.",

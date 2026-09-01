@@ -3,8 +3,8 @@
 //
 //   SB1 (structural): buildRuntimeOptions()'s own output — the extension
 //   list is closed, settings pin packages:[] / defaultTools, and the strict
-//   `tools` allowlist is exactly SAFE_TOOLS plus the one legitimate custom
-//   tool. Fails immediately if a future edit adds/renames an extension.
+//   `tools` allowlist is exactly SAFE_TOOLS plus the two legitimate custom
+//   tools. Fails immediately if a future edit adds/renames an extension.
 //
 //   SB2 (dynamic): a REAL AgentSession, built from buildRuntimeOptions()'s
 //   actual output (not a hand-rolled stand-in), driven through a real
@@ -29,6 +29,7 @@ import {
 import { ALLOWED_TOOL_NAMES, buildRuntimeOptions, type LaunchOptions } from "../src/pi-launch";
 import { SAFE_TOOLS } from "../src/provider";
 import { USAGE_TOOL_NAME } from "../src/usage-tool";
+import { BUY_TOOL_NAME } from "../src/buy-tool";
 
 function tempDir(prefix: string): string {
   return mkdtempSync(join(tmpdir(), prefix));
@@ -39,13 +40,20 @@ function baseOpts(baseUrl: string): LaunchOptions {
 }
 
 describe("closed extension list (#28 R20, SB1)", () => {
-  test("buildRuntimeOptions registers exactly the five known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the six known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
-    // 0.2.6: the closed set deliberately grew to five with free-pi-commands
-    // (the /close-other-session, /whats-new, /update slash commands). Any
-    // further addition must be a reviewed, deliberate edit — never accidental.
+    // #226: the closed set deliberately grew to six with free-pi-buy-tool
+    // (the /buy-credits tool). Any further addition must be a reviewed,
+    // deliberate edit — never accidental.
     expect([...opts.extensionNames].sort()).toEqual(
-      ["free-pi-ads", "free-pi-commands", "free-pi-provider", "free-pi-tool-guard", "free-pi-usage-tool"].sort(),
+      [
+        "free-pi-ads",
+        "free-pi-buy-tool",
+        "free-pi-commands",
+        "free-pi-provider",
+        "free-pi-tool-guard",
+        "free-pi-usage-tool",
+      ].sort(),
     );
   });
 
@@ -56,9 +64,9 @@ describe("closed extension list (#28 R20, SB1)", () => {
     expect([...(settings.defaultTools ?? [])].sort()).toEqual([...SAFE_TOOLS].sort());
   });
 
-  test("the strict SDK tools allowlist is exactly SAFE_TOOLS plus the one legitimate custom tool", () => {
+  test("the strict SDK tools allowlist is exactly SAFE_TOOLS plus the two legitimate custom tools", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-c");
-    expect([...opts.tools].sort()).toEqual([...SAFE_TOOLS, USAGE_TOOL_NAME].sort());
+    expect([...opts.tools].sort()).toEqual([...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME].sort());
   });
 
   test("SAFE_TOOLS / ALLOWED_TOOL_NAMES never contain a subagent/background-execution tool name", () => {

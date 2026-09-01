@@ -75,6 +75,12 @@ export const MeResponseSchema = z.object({
   remaining_usd_today: z.number(),
   cap_usd_today: z.number(),
   tier: AccountTierSchema,
+  /** #229: purchased-usage balance in USD (display-only). Additive; old CLIs ignore it. */
+  credit_usd: z.number(),
+  /** #224: server-owned plain-text line for the meter widget; present only when free budget AND credit are both exhausted. Rendered as text, never interpreted. */
+  notice: z.string().optional(),
+  /** #224: a fresh short-lived buy-page URL (what the /buy-credits tool opens). Never cache it. */
+  buy_url: z.string().optional(),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 
@@ -85,6 +91,8 @@ export const MeStatsResponseSchema = z.object({
   cap_usd_today: z.number(),
   spent_usd_today: z.number(),
   remaining_usd_today: z.number(),
+  /** #229: purchased-usage balance in USD (display-only). */
+  credit_usd: z.number(),
   request_count_today: z.number(),
   prompt_tokens_today: z.number(),
   completion_tokens_today: z.number(),

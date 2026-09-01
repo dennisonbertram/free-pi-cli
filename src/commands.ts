@@ -1,16 +1,21 @@
 // 0.2.6: free-pi's slash commands — /close-other-session (self-service lease
-// reset), /whats-new (bundled changelog), /update (self-update trigger). One
-// inline extension (free-pi-commands) registers all three. Grouped here rather
-// than in usage-tool, which stays read-only.
+// reset), /whats-new (bundled changelog), /update (self-update trigger), and
+// 0.2.12: /buy-credits (opens the buy page; epic #221). One inline extension
+// (free-pi-commands) registers all four. Grouped here rather than in
+// usage-tool, which stays read-only.
 import type { ExtensionAPI, InlineExtension } from "@earendil-works/pi-coding-agent";
 import { SessionResetResponseSchema } from "@freepi/shared";
 import { CHANGELOG_HIGHLIGHTS } from "./changelog";
+import { openBrowser } from "./browser";
+import { BUY_NOT_AVAILABLE_TEXT, buyPageText, resolveBuyPage } from "./buy-tool";
 
 export interface CreateCommandsOptions {
   baseUrl: string;
   /** Reads the current JWT from the cli's credential store. May be async. */
   getToken: () => string | Promise<string>;
   fetchImpl?: typeof fetch;
+  /** Injected in tests; defaults to browser.ts's opener. */
+  openBrowserImpl?: typeof openBrowser;
 }
 
 /** Minimal shape of the command context we use — just the notify surface. */
@@ -113,6 +118,22 @@ export async function runUpdate(ctx: NotifyContext, deps: UpdateDeps = {}): Prom
   }
 }
 
+// ---- /buy-credits ---------------------------------------------------------
+
+/**
+ * Deliberate, discoverable "I want to buy" path (epic #221): same resolver as
+ * the free_pi_buy_credits tool, but a slash command needs no model turn — it
+ * works even when the user is out of usage and every completion is a 429.
+ * Never throws.
+ */
+export async function buyCredits(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
+  const page = await resolveBuyPage(opts);
+  if (page.kind === "error") return ctx.ui.notify(page.text, "error");
+  if (page.kind === "unavailable") return ctx.ui.notify(BUY_NOT_AVAILABLE_TEXT, "info");
+  (opts.openBrowserImpl ?? openBrowser)(page.url);
+  ctx.ui.notify(buyPageText(page.url), "info");
+}
+
 // ---- extension ------------------------------------------------------------
 
 export function createFreePiCommandsExtension(opts: CreateCommandsOptions): InlineExtension {
@@ -130,6 +151,10 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("update", {
         description: "Update free-pi-cli to the latest version.",
         handler: (_args, ctx) => runUpdate(ctx),
+      });
+      pi.registerCommand("buy-credits", {
+        description: "Buy more usage ($5 or $10 packs, card or USDC) — opens the buy page.",
+        handler: (_args, ctx) => buyCredits(opts, ctx),
       });
     },
   };

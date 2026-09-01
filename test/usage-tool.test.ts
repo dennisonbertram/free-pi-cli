@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { MeStatsResponse } from "@freepi/shared";
-import { createUsageToolExtension, formatStats } from "../src/usage-tool";
+import { createUsageToolExtension, formatStats, percentUsed } from "../src/usage-tool";
 
 // Mirrors packages/pi-ads/src/sandbox.test.ts's fake-ExtensionAPI Proxy
 // harness: a Proxy that records every call instead of throwing on the
@@ -92,35 +92,38 @@ describe("createUsageToolExtension", () => {
     const tool = registerAndGetTool(fetchImpl);
 
     const result = await tool.execute("call-1", {}, undefined, undefined, {});
-    expect(result.content[0]!.text).toContain("0.5000"); // spent_usd_today
-    expect(result.content[0]!.text).toContain("1.5000"); // remaining_usd_today
+    expect(result.content[0]!.text).toContain("25% of your free daily allowance used"); // 0.5 of cap 2
+    expect(result.content[0]!.text).not.toContain("$0.5"); // never a free-usage dollar figure
     expect(result.content[0]!.text).toContain("young"); // tier
     expect(result.details).toEqual(STATS);
   });
 
-  test("#227: credit_usd present → one added credit line; absent (old server) → output byte-identical to before", () => {
-    const { credit_usd: _omit, ...oldServer } = STATS;
-    const without = formatStats(oldServer as MeStatsResponse);
-    expect(without).toBe(
-      [
-        "tier: young (cap $2.00/day)",
-        "today: spent $0.5000, remaining $1.5000, 3 request(s)",
-        "today tokens: 120 prompt / 60 completion",
-        "lifetime: spent $4.2000, 12 request(s), 900 prompt / 400 completion tokens",
-      ].join("\n"),
-    );
-    expect(without).not.toContain("credit");
-
-    const withCredit = formatStats({ ...STATS, credit_usd: 3.5 });
-    expect(withCredit.split("\n")).toEqual([
-      "tier: young (cap $2.00/day)",
-      "today: spent $0.5000, remaining $1.5000, 3 request(s)",
+  test("free usage is shown as a percentage only — no free-usage dollar figure anywhere; credit stays in dollars", () => {
+    // STATS: spent 0.5 of cap 2 → 25%.
+    expect(formatStats({ ...STATS, credit_usd: 3.5 }).split("\n")).toEqual([
+      "tier: young",
+      "today: 25% of your free daily allowance used, 3 request(s)",
       "credit: $3.50 purchased usage remaining",
       "today tokens: 120 prompt / 60 completion",
-      "lifetime: spent $4.2000, 12 request(s), 900 prompt / 400 completion tokens",
+      "lifetime: 12 request(s), 900 prompt / 400 completion tokens",
     ]);
-    // credit_usd: 0 is still a number → the line shows $0.00 (the user bought nothing, or spent it all).
+    const { credit_usd: _omit, ...oldServer } = STATS;
+    const without = formatStats(oldServer as MeStatsResponse);
+    expect(without).not.toContain("credit");
+    // Neither the cap, today's spend/remaining, nor lifetime spend appear as dollars.
+    for (const s of [without, formatStats(STATS)]) {
+      expect(s).not.toMatch(/\$2\.00|\$0\.5|\$1\.5|\$4\.2/);
+    }
     expect(formatStats(STATS)).toContain("credit: $0.00 purchased usage remaining");
+  });
+
+  test("percentUsed rounds to a whole percent, clamps to 0..100, and treats a zero cap as fully used", () => {
+    expect(percentUsed(0, 5)).toBe(0);
+    expect(percentUsed(0.0023, 5)).toBe(0);
+    expect(percentUsed(2.5, 5)).toBe(50);
+    expect(percentUsed(4.976, 5)).toBe(100);
+    expect(percentUsed(7, 5)).toBe(100);
+    expect(percentUsed(1, 0)).toBe(100);
   });
 
   test("a non-OK response produces a graceful text result, not a thrown error", async () => {

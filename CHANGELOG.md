@@ -5,6 +5,16 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.12] - 2026-09-01
+
+### Added
+- `/buy-credits` slash command (#241): opens the buy page with no model turn, so it works when
+  you are out of usage and every request is rejected.
+
+### Changed
+- `free_pi_usage` reports free usage as a percentage of today's allowance (#242). No free-usage
+  dollar figure is shown anywhere (cap, spend, lifetime). Purchased credit stays in dollars.
+
 ## [0.2.11] - 2026-09-01
 
 ### Added

@@ -1,14 +1,14 @@
 {
   "note": "Written by scripts/sync-public-cli.ts in the free-pi monorepo. `files` is the sha256 of everything the last sync wrote; the next sync refuses to run if any of it changed here without being ported back into the monorepo. Do not edit by hand.",
-  "source_version": "0.2.11",
+  "source_version": "0.2.12",
   "files": {
     "src/auth-flow.ts": "ace83239e9e0a90bbae2ef128350fdfca221d58f5e6dafb6c01daed8a08124e2",
     "src/browser.ts": "4319c704b07bf5a635b42629457c246c7675f4445f47475cddbbac8a62eecb51",
-    "src/buy-tool.ts": "cf7431114660e34cbdf84e5edf27ac0c3e8b5f073a43362624117d4129b230f4",
-    "src/changelog.ts": "63cab3f16ce7c5804efcbce9f4ba1689cf2857c604a75a4198606d0150c3beaf",
+    "src/buy-tool.ts": "72c7852905ac6d806910a92f84692b686b6ea99fc45211225af5cc4dfb2259a6",
+    "src/changelog.ts": "a602ffe74e1cc09fe4333743a11a237a7d44bbc72c6813a75aad670dc392f808",
     "src/cli-args.ts": "e8c5f0c1315bb125c684070328c66662048aa6ac882f2ce1610c541fa6a40886",
     "src/cli-config.ts": "1f64d7d8efe3f20ca0907dacf9b0e67bde6de8f987893f558e8c68e3e4ecd082",
-    "src/commands.ts": "91ead83c99a0847aa8111a59115ce7a1856671bee685b208e07e61ecf5b7bc97",
+    "src/commands.ts": "a56759c4476a9dcfcd58b36ead5d9af3e65f7795f8cd1cb1f3753d5697e0f3d7",
     "src/consent.ts": "0301aafc1f61076ce3d5bfed7bcc4f67fa919a45e7f16030f22d884f39400f60",
     "src/credentials.ts": "79c868c081d072c883fe0e45b16368c100d6d3946e25363407b7bdf246bdaa4c",
     "src/env.ts": "8f53b14ed2d49b1668b2375733dbad55edf639dbd0f07151bbaca87902106919",
@@ -27,7 +27,7 @@
     "src/self-update.ts": "6fcbe861511a3a31460e2f197332eea02f4ad88f960a8fa82cea4b665c3df9e2",
     "src/tool-guard.ts": "4fa6ff602418a4b98f6f6ec58b709fdfa38d7667c009ebcddba994fdff3f806f",
     "src/update-check.ts": "a9c2661cd1b040586a4b109f31c92c6fc5f9cd45886df2a8aa25b5eac5f52b3e",
-    "src/usage-tool.ts": "b3a1e48aa0494588017275fefd7d4acd940246d17f4e66ab82735cdc67324f92",
+    "src/usage-tool.ts": "f42b8737c93da9767b08578e44b0296cb71d15b5c7014219815ecdb935997270",
     "src/version.ts": "2017f00aad1deecd26d1e537f12c8d41c77be8cc0556f582c5140a07ac86e8b4",
     "src/whats-new.ts": "cd13b887a35af4fd9a41a484fc5c47585480b41307288e45e902941e1adee5fe",
     "test/auth-flow.test.ts": "57a245e66f6ea95c37d50135c98a5f07c3e8e5ee79b0801b584ac9e484f86ca5",
@@ -36,7 +36,7 @@
     "test/changelog.test.ts": "6c47f5f9bc1abcbe479055aa6226ca14062ffffad1146e6fa53742f70e34a0b5",
     "test/cli-args.test.ts": "8d4a74655c26a2050dfba41b7f1f8286e2126c6e41ad8a6780daa67b04313526",
     "test/cli-config.test.ts": "821af7e2bb42baadbfd4107f1cda552a5da37d098fd97aef8ce494dce034d138",
-    "test/commands.test.ts": "54a5e08ae7adbae149c8018aee6627dfe1329d607247cf12a629cf2df625bc70",
+    "test/commands.test.ts": "8c3f1531649680f691fa3c0fc5653d1835ed1c8b13de51a8794f20d6205c8393",
     "test/firstrun.test.ts": "7ad5968c828d9dceb142fcb38a590ac061f0db0f4065f541f088448c2b8eba53",
     "test/logout.test.ts": "706a02da10ae14cac841be584662852593fed4462ddcc0eae3d1ac473c7db6ec",
     "test/no-subagents.test.ts": "13cf7c96b8723f46793eeb47e2f6dbdc1bf314e54841934761d354752d896631",
@@ -47,7 +47,7 @@
     "test/self-update.test.ts": "d87d8d8c5e83de593bf5dbd99eecaf9a185446b8ba4242caebc29e0913925c76",
     "test/tool-guard.test.ts": "d7c688eb10ba3ceaf6fe4e3d6a9c8ecf09a42fa22c3b4a1bffbadbff0beb52e5",
     "test/update-check.test.ts": "edb20fb221a51519b61b02535bdcb41e496bd92fb36af22186df76771be5cab0",
-    "test/usage-tool.test.ts": "4de16322736f77b028e0ea632c1612b45b72638a24e5486f8521026f844c08cd",
+    "test/usage-tool.test.ts": "713546dd2a7fe3dc18d3d05c46db919a8f04cc3036c7c4816763ee74edde1d51",
     "test/whats-new.test.ts": "3a0bdea16b390eb6de546c8404fbecf6b463fb6272f9745d7aa714bfc1bf0183",
     "src/vendor/pi-ads/api.ts": "29e49522f53c114032506cbe5eb7d917bea9bbc186301dd49da2345138899003",
     "src/vendor/pi-ads/banner.ts": "ea921c23e846bfe2e2d938c6aa2a9efb20afd667ed6d8d6264d2e645ddcb106d",
@@ -62,7 +62,7 @@
     "src/vendor/shared/errors.ts": "aeac93d1f3ea36ab5904520b469aba3488ea8ce08a7b602e8afb3e8be1dffc79",
     "src/vendor/shared/version.ts": "3895280199012b003b9701369f137b16557a0f75f39257e1f1bcc1f670ddb98d",
     "README.md": "e66e5ce3b75dd78a91573a93e09752cb88eee449426728b9967ad72b2d515408",
-    "CHANGELOG.md": "c455560e1548a33e9eb3c6eb075625520ae6fda3723e843298a1e5c1655e6764",
-    "package.json": "ae5aad760635508628d9aaf3beebd9d8d2bbd12ff3b18fae0f68e371d023760b"
+    "CHANGELOG.md": "ae1b077f3c718b563c3669338eb42f9ca8c81ad0b96dbebd18c98d4823b1d590",
+    "package.json": "addfd8934538de3a60743520e232f7fb6a058752a82e520ffebfd3b2d306953b"
   }
 }

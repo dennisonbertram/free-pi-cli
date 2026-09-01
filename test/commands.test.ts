@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
-import { closeOtherSession, runUpdate, showWhatsNew } from "../src/commands";
+import { buyCredits, closeOtherSession, runUpdate, showWhatsNew } from "../src/commands";
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
   return ((url: URL | string, init?: RequestInit) =>
@@ -118,5 +118,56 @@ describe("/update (runUpdate)", () => {
     await runUpdate(ctx, { env: {}, installLatest: async () => ({ ok: false }) });
     expect(notes.at(-1)?.type).toBe("error");
     expect(notes.at(-1)?.msg).toContain("npm install -g free-pi-cli@latest");
+  });
+});
+
+describe("/buy-credits (buyCredits)", () => {
+  const BUY_URL = "https://api.test/buy/tok123";
+  function ctx(): { ctx: { ui: { notify(m: string, t?: string): void } }; notes: Array<{ m: string; t?: string }> } {
+    const notes: Array<{ m: string; t?: string }> = [];
+    return { ctx: { ui: { notify: (m: string, t?: string) => void notes.push({ m, t }) } }, notes };
+  }
+  function opts(body: unknown, status = 200) {
+    const requests: Array<{ url: string; method?: string }> = [];
+    const opened: string[] = [];
+    const fetchImpl = (async (input: URL | string, init?: RequestInit) => {
+      requests.push({ url: String(input), method: init?.method });
+      return status === 200 ? Response.json(body) : new Response("nope", { status });
+    }) as unknown as typeof fetch;
+    return {
+      o: { baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl, openBrowserImpl: (u: string) => void opened.push(u) },
+      requests,
+      opened,
+    };
+  }
+
+  test("buy_url present → opens it and notifies with the URL; only a GET /me was made", async () => {
+    const { o, requests, opened } = opts({ buy_url: BUY_URL });
+    const c = ctx();
+    await buyCredits(o, c.ctx);
+    expect(opened).toEqual([BUY_URL]);
+    expect(c.notes).toHaveLength(1);
+    expect(c.notes[0]!.m).toContain(BUY_URL);
+    expect(c.notes[0]!.t).toBe("info");
+    expect(requests).toEqual([{ url: "https://api.test/me", method: undefined }]);
+  });
+
+  test("buy_url absent (old server) → 'not available' notice, nothing opened", async () => {
+    const { o, opened } = opts({ user_id: "u1" });
+    const c = ctx();
+    await buyCredits(o, c.ctx);
+    expect(opened).toEqual([]);
+    expect(c.notes[0]!.m).toBe("Buying credits is not available on this server yet.");
+  });
+
+  test("HTTP 500 and a thrown fetch → friendly error, never throws", async () => {
+    const { o } = opts({}, 500);
+    const c = ctx();
+    await buyCredits(o, c.ctx);
+    expect(c.notes[0]!.t).toBe("error");
+    const throwing = { baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl: (async () => { throw new Error("offline"); }) as unknown as typeof fetch, openBrowserImpl: () => {} };
+    const c2 = ctx();
+    await buyCredits(throwing, c2.ctx);
+    expect(c2.notes[0]!.m).toContain("offline");
   });
 });

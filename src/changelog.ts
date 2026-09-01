@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.12",
+    highlights: [
+      "New: /buy-credits — opens the buy page directly, no model turn needed, even when you are out of usage.",
+      "free_pi_usage now shows your free allowance as a percentage instead of a dollar figure; purchased credit stays in dollars.",
+    ],
+  },
+  {
     version: "0.2.11",
     highlights: [
       "Out of free usage? You can now buy more — $5 or $10 packs, card or USDC. Ask pi to \"buy credits\" or follow the link in the out-of-usage notice.",

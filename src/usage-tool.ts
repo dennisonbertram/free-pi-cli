@@ -34,16 +34,26 @@ export const USAGE_TOOL_NAME = "free_pi_usage";
 
 const PARAMS = Type.Object({});
 
+/** Display-only: whole-percent share of today's free allowance that is spent (founder decision 2026-09-01: never show free-usage dollars). */
+export function percentUsed(spentUsd: number, capUsd: number): number {
+  if (!(capUsd > 0)) return 100;
+  return Math.min(100, Math.max(0, Math.round((spentUsd / capUsd) * 100)));
+}
+
 export function formatStats(stats: MeStatsResponse): string {
+  // Founder decision (2026-09-01, same reasoning as the meter's 2026-08-17
+  // decision): free usage is never shown as a dollar amount — not the cap, not
+  // today's spend, not lifetime spend — only as a percentage of today's
+  // allowance. Purchased credit IS money the user paid, so it stays in dollars.
   // #227: credit_usd arrived with the #229 server; an older server omits it, so
-  // the line is guarded at runtime and the output is otherwise byte-identical.
+  // the line is guarded at runtime.
   const credit = (stats as Partial<MeStatsResponse>).credit_usd;
   return [
-    `tier: ${stats.tier} (cap $${stats.cap_usd_today.toFixed(2)}/day)`,
-    `today: spent $${stats.spent_usd_today.toFixed(4)}, remaining $${stats.remaining_usd_today.toFixed(4)}, ${stats.request_count_today} request(s)`,
+    `tier: ${stats.tier}`,
+    `today: ${percentUsed(stats.spent_usd_today, stats.cap_usd_today)}% of your free daily allowance used, ${stats.request_count_today} request(s)`,
     ...(typeof credit === "number" ? [`credit: $${credit.toFixed(2)} purchased usage remaining`] : []),
     `today tokens: ${stats.prompt_tokens_today} prompt / ${stats.completion_tokens_today} completion`,
-    `lifetime: spent $${stats.lifetime.spent_usd.toFixed(4)}, ${stats.lifetime.request_count} request(s), ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
+    `lifetime: ${stats.lifetime.request_count} request(s), ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
   ].join("\n");
 }
 
@@ -55,8 +65,8 @@ export function createUsageToolExtension(opts: CreateUsageToolOptions): InlineEx
         name: USAGE_TOOL_NAME,
         label: "My Usage",
         description:
-          "Reports the caller's own free-pi spend, remaining daily budget, token counts, and account tier. Read-only, takes no arguments, makes no changes.",
-        promptSnippet: "Check your own free-pi usage, spend, and remaining daily budget",
+          "Reports how much of the caller's free daily allowance is used (as a percentage), purchased credit, token counts, and account tier. Read-only, takes no arguments, makes no changes.",
+        promptSnippet: "Check your own free-pi usage and remaining daily allowance",
         parameters: PARAMS,
         async execute() {
           try {

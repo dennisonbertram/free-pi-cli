@@ -22,6 +22,35 @@ import { Type } from "typebox";
 import type { MeResponse } from "@freepi/shared";
 import { openBrowser } from "./browser";
 
+/** One place resolves "where do I buy": shared by the free_pi_buy_credits tool and the /buy-credits slash command. Never throws. */
+export type BuyPage = { kind: "url"; url: string } | { kind: "unavailable" } | { kind: "error"; text: string };
+
+export async function resolveBuyPage(opts: {
+  baseUrl: string;
+  getToken: () => string | Promise<string>;
+  fetchImpl?: typeof fetch;
+}): Promise<BuyPage> {
+  try {
+    const token = await opts.getToken();
+    const doFetch = opts.fetchImpl ?? fetch;
+    const res = await doFetch(`${opts.baseUrl}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return { kind: "error", text: `Could not fetch the buy page (HTTP ${res.status}).` };
+    const me = (await res.json()) as MeResponse;
+    return me.buy_url ? { kind: "url", url: me.buy_url } : { kind: "unavailable" };
+  } catch (err) {
+    return { kind: "error", text: `Could not fetch the buy page: ${String(err)}` };
+  }
+}
+
+export const BUY_NOT_AVAILABLE_TEXT = "Buying credits is not available on this server yet.";
+
+export function buyPageText(url: string): string {
+  return `Opening the buy page in your browser. If it did not open (for example over SSH), visit:\n${url}\n\nPacks: $5 → $4.00 of usage, $10 → $8.00. Card or USDC.`;
+}
+
 export interface CreateBuyToolOptions {
   baseUrl: string;
   /** Reads the current JWT from the cli's credential store. May be async. */
@@ -40,12 +69,6 @@ export const BUY_TOOL_NAME = "free_pi_buy_credits";
 
 const PARAMS = Type.Object({});
 
-const NOT_AVAILABLE_TEXT = "Buying credits is not available on this server yet.";
-
-function buyText(url: string): string {
-  return `Opening the buy page in your browser. If it did not open (for example over SSH), visit:\n${url}\n\nPacks: $5 → $4.00 of usage, $10 → $8.00. Card or USDC.`;
-}
-
 export function createBuyToolExtension(opts: CreateBuyToolOptions): InlineExtension {
   return {
     name: "free-pi-buy-tool",
@@ -58,38 +81,21 @@ export function createBuyToolExtension(opts: CreateBuyToolOptions): InlineExtens
         promptSnippet: "Buy more free-pi credits",
         parameters: PARAMS,
         async execute() {
-          try {
-            const token = await opts.getToken();
-            const doFetch = opts.fetchImpl ?? fetch;
-            const openBrowserFn = opts.openBrowserImpl ?? openBrowser;
-            const res = await doFetch(`${opts.baseUrl}/me`, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: AbortSignal.timeout(5_000),
-            });
-            if (!res.ok) {
-              return {
-                content: [{ type: "text" as const, text: `Could not fetch the buy page (HTTP ${res.status}).` }],
-                details: { ok: false } as BuyToolDetails,
-              };
-            }
-            const me = (await res.json()) as MeResponse;
-            if (!me.buy_url) {
-              return {
-                content: [{ type: "text" as const, text: NOT_AVAILABLE_TEXT }],
-                details: { available: false } as BuyToolDetails,
-              };
-            }
-            openBrowserFn(me.buy_url);
+          const page = await resolveBuyPage(opts);
+          if (page.kind === "error") {
+            return { content: [{ type: "text" as const, text: page.text }], details: { ok: false } as BuyToolDetails };
+          }
+          if (page.kind === "unavailable") {
             return {
-              content: [{ type: "text" as const, text: buyText(me.buy_url) }],
-              details: { buy_url: me.buy_url } as BuyToolDetails,
-            };
-          } catch (err) {
-            return {
-              content: [{ type: "text" as const, text: `Could not fetch the buy page: ${String(err)}` }],
-              details: { ok: false } as BuyToolDetails,
+              content: [{ type: "text" as const, text: BUY_NOT_AVAILABLE_TEXT }],
+              details: { available: false } as BuyToolDetails,
             };
           }
+          (opts.openBrowserImpl ?? openBrowser)(page.url);
+          return {
+            content: [{ type: "text" as const, text: buyPageText(page.url) }],
+            details: { buy_url: page.url } as BuyToolDetails,
+          };
         },
       });
     },

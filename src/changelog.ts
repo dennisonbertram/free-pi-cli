@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.14",
+    highlights: [
+      "No user-facing changes. This version tests the automated npm publish from GitHub Actions.",
+    ],
+  },
+  {
     version: "0.2.13",
     highlights: [
       "Purchased balance is now shown as credits — $5 buys 50,000 credits, $10 buys 100,000.",

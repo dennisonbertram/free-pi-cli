@@ -10,6 +10,12 @@ build); this file is the fuller human record.
 ### Added
 - `/buy-credits` slash command (#241): opens the buy page with no model turn, so it works when
   you are out of usage and every request is rejected.
+- `/usage` slash command: the same report as `free_pi_usage`, with no model turn.
+- One readable line when the server rejects a request with a 429: the server's own buy notice at
+  the wall, or a plain rate-limit line with the retry time. pi still prints its raw error and
+  retries; this line sits beside it.
+- A heads-up in the meter from 80% of the free daily allowance (server-owned text).
+- A one-turn "Payment received — $X of usage added" line in the meter when a purchase lands.
 
 ### Changed
 - `free_pi_usage` reports free usage as a percentage of today's allowance (#242). No free-usage

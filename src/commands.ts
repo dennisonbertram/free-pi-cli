@@ -8,6 +8,7 @@ import { SessionResetResponseSchema } from "@freepi/shared";
 import { CHANGELOG_HIGHLIGHTS } from "./changelog";
 import { openBrowser } from "./browser";
 import { BUY_NOT_AVAILABLE_TEXT, buyPageText, resolveBuyPage } from "./buy-tool";
+import { fetchUsageText } from "./usage-tool";
 
 export interface CreateCommandsOptions {
   baseUrl: string;
@@ -134,6 +135,14 @@ export async function buyCredits(opts: CreateCommandsOptions, ctx: NotifyContext
   ctx.ui.notify(buyPageText(page.url), "info");
 }
 
+// ---- /usage ---------------------------------------------------------------
+
+/** Same output as the free_pi_usage tool, with no model turn — works at the wall. Never throws. */
+export async function showUsage(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
+  const r = await fetchUsageText(opts);
+  ctx.ui.notify(r.text, r.ok ? "info" : "error");
+}
+
 // ---- extension ------------------------------------------------------------
 
 export function createFreePiCommandsExtension(opts: CreateCommandsOptions): InlineExtension {
@@ -151,6 +160,10 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("update", {
         description: "Update free-pi-cli to the latest version.",
         handler: (_args, ctx) => runUpdate(ctx),
+      });
+      pi.registerCommand("usage", {
+        description: "Show how much of today's free allowance you have used, and your purchased credit.",
+        handler: (_args, ctx) => showUsage(opts, ctx),
       });
       pi.registerCommand("buy-credits", {
         description: "Buy more usage ($5 or $10 packs, card or USDC) — opens the buy page.",

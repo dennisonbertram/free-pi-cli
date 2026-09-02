@@ -40,16 +40,18 @@ function baseOpts(baseUrl: string): LaunchOptions {
 }
 
 describe("closed extension list (#28 R20, SB1)", () => {
-  test("buildRuntimeOptions registers exactly the six known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the seven known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
-    // #226: the closed set deliberately grew to six with free-pi-buy-tool
-    // (the /buy-credits tool). Any further addition must be a reviewed,
-    // deliberate edit — never accidental.
+    // #226: the closed set deliberately grew to six with free-pi-buy-tool;
+    // 2026-09-01: to seven with free-pi-error-notice (one readable line on a
+    // 429). Any further addition must be a reviewed, deliberate edit — never
+    // accidental.
     expect([...opts.extensionNames].sort()).toEqual(
       [
         "free-pi-ads",
         "free-pi-buy-tool",
         "free-pi-commands",
+        "free-pi-error-notice",
         "free-pi-provider",
         "free-pi-tool-guard",
         "free-pi-usage-tool",

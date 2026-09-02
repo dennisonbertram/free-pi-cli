@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
 import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
+import { createErrorNoticeExtension } from "./error-notice";
 import { createToolGuardExtension } from "./tool-guard";
 import { createFreePiCommandsExtension } from "./commands";
 import { resolveFreePiScope } from "./provider-lock";
@@ -98,6 +99,10 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
+  // 2026-09-01: one readable, server-owned line when a turn is rejected
+  // (read from turn_end's error envelope). See error-notice.ts.
+  const errorNoticeExtension: InlineExtension = createErrorNoticeExtension();
+
   // #28 R20a: defense-in-depth block + report for any tool outside
   // ALLOWED_TOOL_NAMES that somehow reaches a tool_call event.
   const toolGuardExtension: InlineExtension = createToolGuardExtension({
@@ -114,8 +119,8 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
-  // Closed, SIX-item list — SB1's structural test fails if a future edit
-  // adds a seventh extension or drops one of these. Settings deliberately
+  // Closed, SEVEN-item list — SB1's structural test fails if a future edit
+  // adds an eighth extension or drops one of these. Settings deliberately
   // omit `packages` (no pi-packages installed, so no MCP adapter / subagent
   // extension can be pulled in) and pin `defaultTools` to the built-in tool
   // set (never includes a subagent/background-bash/MCP tool per pi's own
@@ -127,6 +132,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     adsExtension,
     usageToolExtension,
     buyToolExtension,
+    errorNoticeExtension,
     toolGuardExtension,
     commandsExtension,
   ];

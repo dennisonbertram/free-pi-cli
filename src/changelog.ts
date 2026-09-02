@@ -13,8 +13,9 @@ export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
     version: "0.2.12",
     highlights: [
-      "New: /buy-credits — opens the buy page directly, no model turn needed, even when you are out of usage.",
-      "free_pi_usage now shows your free allowance as a percentage instead of a dollar figure; purchased credit stays in dollars.",
+      "New: /buy-credits and /usage slash commands — work instantly, even when you are out of usage.",
+      "Free usage is shown as a percentage, never a dollar figure; purchased credit stays in dollars.",
+      "Clearer messages: one readable line when a request is rejected, a heads-up at 80% of your daily allowance, and a confirmation when a purchase lands.",
     ],
   },
   {

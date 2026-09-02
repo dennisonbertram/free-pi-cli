@@ -57,6 +57,23 @@ export function formatStats(stats: MeStatsResponse): string {
   ].join("\n");
 }
 
+/** One place fetches + formats usage: shared by the free_pi_usage tool and the /usage slash command. Never throws. */
+export async function fetchUsageText(opts: CreateUsageToolOptions): Promise<{ ok: true; text: string; stats: MeStatsResponse } | { ok: false; text: string }> {
+  try {
+    const token = await opts.getToken();
+    const doFetch = opts.fetchImpl ?? fetch;
+    const res = await doFetch(`${opts.baseUrl}/me/stats`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return { ok: false, text: `Could not fetch usage (HTTP ${res.status}).` };
+    const stats = (await res.json()) as MeStatsResponse;
+    return { ok: true, text: formatStats(stats), stats };
+  } catch (err) {
+    return { ok: false, text: `Could not fetch usage: ${String(err)}` };
+  }
+}
+
 export function createUsageToolExtension(opts: CreateUsageToolOptions): InlineExtension {
   return {
     name: "free-pi-usage-tool",
@@ -69,30 +86,11 @@ export function createUsageToolExtension(opts: CreateUsageToolOptions): InlineEx
         promptSnippet: "Check your own free-pi usage and remaining daily allowance",
         parameters: PARAMS,
         async execute() {
-          try {
-            const token = await opts.getToken();
-            const doFetch = opts.fetchImpl ?? fetch;
-            const res = await doFetch(`${opts.baseUrl}/me/stats`, {
-              headers: { Authorization: `Bearer ${token}` },
-              signal: AbortSignal.timeout(5_000),
-            });
-            if (!res.ok) {
-              return {
-                content: [{ type: "text" as const, text: `Could not fetch usage (HTTP ${res.status}).` }],
-                details: { ok: false } as UsageToolDetails,
-              };
-            }
-            const stats = (await res.json()) as MeStatsResponse;
-            return {
-              content: [{ type: "text" as const, text: formatStats(stats) }],
-              details: stats as UsageToolDetails,
-            };
-          } catch (err) {
-            return {
-              content: [{ type: "text" as const, text: `Could not fetch usage: ${String(err)}` }],
-              details: { ok: false } as UsageToolDetails,
-            };
-          }
+          const r = await fetchUsageText(opts);
+          return {
+            content: [{ type: "text" as const, text: r.text }],
+            details: (r.ok ? r.stats : { ok: false }) as UsageToolDetails,
+          };
         },
       });
     },

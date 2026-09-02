@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
-import { buyCredits, closeOtherSession, runUpdate, showWhatsNew } from "../src/commands";
+import { buyCredits, closeOtherSession, runUpdate, showUsage, showWhatsNew } from "../src/commands";
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
   return ((url: URL | string, init?: RequestInit) =>
@@ -169,5 +169,35 @@ describe("/buy-credits (buyCredits)", () => {
     const c2 = ctx();
     await buyCredits(throwing, c2.ctx);
     expect(c2.notes[0]!.m).toContain("offline");
+  });
+});
+
+describe("/usage (showUsage)", () => {
+  const STATS = {
+    user_id: "u1", handle: "octocat", tier: "young", cap_usd_today: 2, spent_usd_today: 0.5, remaining_usd_today: 1.5,
+    credit_usd: 3.5, request_count_today: 3, prompt_tokens_today: 120, completion_tokens_today: 60,
+    lifetime: { spent_usd: 4.2, prompt_tokens: 900, completion_tokens: 400, request_count: 12 },
+  };
+  test("notifies the same percentage-only text as the tool, from GET /me/stats", async () => {
+    const urls: string[] = [];
+    const fetchImpl = fakeFetch((url) => { urls.push(url); return Response.json(STATS); });
+    const { ctx, notes } = notifyCtx();
+    await showUsage({ baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl }, ctx);
+    expect(urls).toEqual(["https://api.test/me/stats"]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.type).toBe("info");
+    expect(notes[0]!.msg.split("\n")).toEqual([
+      "tier: young",
+      "today: 25% of your free daily allowance used, 3 request(s)",
+      "credit: $3.50 purchased usage remaining",
+      "today tokens: 120 prompt / 60 completion",
+      "lifetime: 12 request(s), 900 prompt / 400 completion tokens",
+    ]);
+  });
+  test("server error → one error notice, never throws", async () => {
+    const { ctx, notes } = notifyCtx();
+    await showUsage({ baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl: fakeFetch(() => new Response("x", { status: 503 })) }, ctx);
+    expect(notes[0]!.type).toBe("error");
+    expect(notes[0]!.msg).toContain("503");
   });
 });

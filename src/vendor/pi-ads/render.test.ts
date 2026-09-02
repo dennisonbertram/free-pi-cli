@@ -5,7 +5,7 @@ import { fetchAdNext, postImpression, type AdsDeps } from "./api";
 import { BANNER_WIDGET_ID, createBannerRenderer } from "./banner";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
 import { createInlineRenderer, INLINE_WIDGET_ID } from "./inline";
-import { METER_WIDGET_ID, renderMeter } from "./meter";
+import { CONFIRM_TURNS, creditAddedMessage, METER_WIDGET_ID, renderMeter, resetMeterState } from "./meter";
 import { renderAdCard, renderPlainAdLine, sanitizeText } from "./style";
 
 const config = loadConfig({}); // defaults: adInlineTurnFrequency=5, adMinColumns=60
@@ -329,5 +329,36 @@ describe("meter: server-supplied notice (#225)", () => {
       await renderMeter(deps(meFetch(body)), ctx);
       expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: undefined, options: undefined }]);
     }
+  });
+});
+
+describe("meter: one-turn purchase confirmation when credit_usd rises", () => {
+  function meAt(credit: number | undefined, remaining = 4.5): typeof fetch {
+    return (async () => jsonResponse({ user_id: "u1", handle: "o", cap_usd_today: 5, tier: "established", remaining_usd_today: remaining, ...(credit === undefined ? {} : { credit_usd: credit }) })) as unknown as typeof fetch;
+  }
+  test("first poll sets the baseline silently; a rise shows the confirmation for CONFIRM_TURNS polls; then normal again", async () => {
+    resetMeterState();
+    const { ctx, widgetCalls } = fakeCtx();
+    await renderMeter(deps(meAt(0)), ctx);
+    expect(widgetCalls.at(-1)!.content).toBeUndefined();
+    await renderMeter(deps(meAt(4)), ctx);
+    expect(widgetCalls.at(-1)!.content).toEqual([creditAddedMessage(4)]);
+    expect(creditAddedMessage(4)).toBe("Payment received — $4.00 of usage added to your balance.");
+    for (let i = 1; i < CONFIRM_TURNS; i++) {
+      await renderMeter(deps(meAt(4)), ctx);
+      expect(widgetCalls.at(-1)!.content).toEqual([creditAddedMessage(4)]);
+    }
+    await renderMeter(deps(meAt(4)), ctx);
+    expect(widgetCalls.at(-1)!.content).toBeUndefined();
+    // Spending credit (a fall) never triggers it.
+    await renderMeter(deps(meAt(3.9)), ctx);
+    expect(widgetCalls.at(-1)!.content).toBeUndefined();
+  });
+  test("an old server without credit_usd never triggers it", async () => {
+    resetMeterState();
+    const { ctx, widgetCalls } = fakeCtx();
+    await renderMeter(deps(meAt(undefined)), ctx);
+    await renderMeter(deps(meAt(undefined)), ctx);
+    expect(widgetCalls.every((w) => w.content === undefined)).toBe(true);
   });
 });

@@ -130,10 +130,6 @@ export function renderPlainAdLine(
 // Meter / error line
 // ---------------------------------------------------------------------------
 
-export function renderMeterLine(remainingUsdToday: number, theme: ThemeLike): string {
-  return theme.fg("dim", `free budget today: $${remainingUsdToday.toFixed(2)} remaining`);
-}
-
 export function renderErrorLine(message: string, theme: ThemeLike): string {
   return theme.fg("error", message);
 }

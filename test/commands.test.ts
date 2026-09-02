@@ -175,7 +175,7 @@ describe("/buy-credits (buyCredits)", () => {
 describe("/usage (showUsage)", () => {
   const STATS = {
     user_id: "u1", handle: "octocat", tier: "young", cap_usd_today: 2, spent_usd_today: 0.5, remaining_usd_today: 1.5,
-    credit_usd: 3.5, request_count_today: 3, prompt_tokens_today: 120, completion_tokens_today: 60,
+    credit_usd: 3.75, credit_credits: 50000, request_count_today: 3, prompt_tokens_today: 120, completion_tokens_today: 60,
     lifetime: { spent_usd: 4.2, prompt_tokens: 900, completion_tokens: 400, request_count: 12 },
   };
   test("notifies the same percentage-only text as the tool, from GET /me/stats", async () => {
@@ -188,10 +188,10 @@ describe("/usage (showUsage)", () => {
     expect(notes[0]!.type).toBe("info");
     expect(notes[0]!.msg.split("\n")).toEqual([
       "tier: young",
-      "today: 25% of your free daily allowance used, 3 request(s)",
-      "credit: $3.50 purchased usage remaining",
+      "today: 25% of your free daily allowance used",
+      "credit: 50,000 credits remaining",
       "today tokens: 120 prompt / 60 completion",
-      "lifetime: 12 request(s), 900 prompt / 400 completion tokens",
+      "lifetime: 900 prompt / 400 completion tokens",
     ]);
   });
   test("server error → one error notice, never throws", async () => {

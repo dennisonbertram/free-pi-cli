@@ -93,6 +93,8 @@ export const MeStatsResponseSchema = z.object({
   remaining_usd_today: z.number(),
   /** #229: purchased-usage balance in USD (display-only). */
   credit_usd: z.number(),
+  /** #credits: purchased balance as whole display credits (server-owned peg; display-only). */
+  credit_credits: z.number(),
   request_count_today: z.number(),
   prompt_tokens_today: z.number(),
   completion_tokens_today: z.number(),

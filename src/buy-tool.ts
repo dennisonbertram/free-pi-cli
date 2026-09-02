@@ -48,7 +48,7 @@ export async function resolveBuyPage(opts: {
 export const BUY_NOT_AVAILABLE_TEXT = "Buying credits is not available on this server yet.";
 
 export function buyPageText(url: string): string {
-  return `Opening the buy page in your browser. If it did not open (for example over SSH), visit:\n${url}\n\nPacks: $5 → $4.00 of usage, $10 → $8.00. Card or USDC.`;
+  return `Opening the buy page in your browser. If it did not open (for example over SSH), visit:\n${url}\n\nPacks: $5 → 50,000 credits, $10 → 100,000 credits. Card or USDC.`;
 }
 
 export interface CreateBuyToolOptions {

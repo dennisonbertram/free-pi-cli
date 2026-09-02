@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.13",
+    highlights: [
+      "Purchased balance is now shown as credits — $5 buys 50,000 credits, $10 buys 100,000.",
+      "The usage summary is cleaner: your free allowance still shows as a percentage, with token counts, and no request tally.",
+    ],
+  },
+  {
     version: "0.2.12",
     highlights: [
       "New: /buy-credits and /usage slash commands — work instantly, even when you are out of usage.",

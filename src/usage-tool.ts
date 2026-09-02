@@ -44,16 +44,19 @@ export function formatStats(stats: MeStatsResponse): string {
   // Founder decision (2026-09-01, same reasoning as the meter's 2026-08-17
   // decision): free usage is never shown as a dollar amount — not the cap, not
   // today's spend, not lifetime spend — only as a percentage of today's
-  // allowance. Purchased credit IS money the user paid, so it stays in dollars.
-  // #227: credit_usd arrived with the #229 server; an older server omits it, so
-  // the line is guarded at runtime.
-  const credit = (stats as Partial<MeStatsResponse>).credit_usd;
+  // allowance.
+  // #credits: purchased balance is shown as whole "credits" (server-owned peg),
+  // never a dollar figure, so the $paid -> $granted margin is never visible.
+  // Guarded at runtime: an older server omits credit_credits.
+  const credits = (stats as Partial<MeStatsResponse>).credit_credits;
+  // Request counts are omitted on purpose (#credits): a count next to the
+  // percentage would let a user back into per-request cost. Tokens stay.
   return [
     `tier: ${stats.tier}`,
-    `today: ${percentUsed(stats.spent_usd_today, stats.cap_usd_today)}% of your free daily allowance used, ${stats.request_count_today} request(s)`,
-    ...(typeof credit === "number" ? [`credit: $${credit.toFixed(2)} purchased usage remaining`] : []),
+    `today: ${percentUsed(stats.spent_usd_today, stats.cap_usd_today)}% of your free daily allowance used`,
+    ...(typeof credits === "number" ? [`credit: ${credits.toLocaleString("en-US")} credits remaining`] : []),
     `today tokens: ${stats.prompt_tokens_today} prompt / ${stats.completion_tokens_today} completion`,
-    `lifetime: ${stats.lifetime.request_count} request(s), ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
+    `lifetime: ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
   ].join("\n");
 }
 

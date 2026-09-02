@@ -73,6 +73,7 @@ const STATS: MeStatsResponse = {
   spent_usd_today: 0.5,
   remaining_usd_today: 1.5,
   credit_usd: 0,
+  credit_credits: 0,
   request_count_today: 3,
   prompt_tokens_today: 120,
   completion_tokens_today: 60,
@@ -100,21 +101,21 @@ describe("createUsageToolExtension", () => {
 
   test("free usage is shown as a percentage only — no free-usage dollar figure anywhere; credit stays in dollars", () => {
     // STATS: spent 0.5 of cap 2 → 25%.
-    expect(formatStats({ ...STATS, credit_usd: 3.5 }).split("\n")).toEqual([
+    expect(formatStats({ ...STATS, credit_credits: 50000 }).split("\n")).toEqual([
       "tier: young",
-      "today: 25% of your free daily allowance used, 3 request(s)",
-      "credit: $3.50 purchased usage remaining",
+      "today: 25% of your free daily allowance used",
+      "credit: 50,000 credits remaining",
       "today tokens: 120 prompt / 60 completion",
-      "lifetime: 12 request(s), 900 prompt / 400 completion tokens",
+      "lifetime: 900 prompt / 400 completion tokens",
     ]);
-    const { credit_usd: _omit, ...oldServer } = STATS;
+    const { credit_credits: _omit, ...oldServer } = STATS;
     const without = formatStats(oldServer as MeStatsResponse);
     expect(without).not.toContain("credit");
     // Neither the cap, today's spend/remaining, nor lifetime spend appear as dollars.
     for (const s of [without, formatStats(STATS)]) {
       expect(s).not.toMatch(/\$2\.00|\$0\.5|\$1\.5|\$4\.2/);
     }
-    expect(formatStats(STATS)).toContain("credit: $0.00 purchased usage remaining");
+    expect(formatStats(STATS)).toContain("credit: 0 credits remaining");
   });
 
   test("percentUsed rounds to a whole percent, clamps to 0..100, and treats a zero cap as fully used", () => {

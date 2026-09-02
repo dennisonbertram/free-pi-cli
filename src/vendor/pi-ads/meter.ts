@@ -4,6 +4,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AdsDeps } from "./api";
 import { fetchMe } from "./api";
+import { usdToCredits } from "@freepi/shared";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
 import { renderErrorLine, sanitizeText, type ThemeLike } from "./style";
 
@@ -25,7 +26,9 @@ export function resetMeterState(): void {
 }
 
 export function creditAddedMessage(addedUsd: number): string {
-  return `Payment received — $${addedUsd.toFixed(2)} of usage added to your balance.`;
+  // #credits: show the round credit figure, never the granted-dollar amount —
+  // otherwise a $5 purchase confirming as "$3.75 added" re-exposes the margin.
+  return `Payment received — ${usdToCredits(addedUsd).toLocaleString("en-US")} credits added to your balance.`;
 }
 
 export async function renderMeter(deps: AdsDeps, ctx: ExtensionContext): Promise<void> {

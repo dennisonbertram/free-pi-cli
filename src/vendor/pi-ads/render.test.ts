@@ -343,7 +343,8 @@ describe("meter: one-turn purchase confirmation when credit_usd rises", () => {
     expect(widgetCalls.at(-1)!.content).toBeUndefined();
     await renderMeter(deps(meAt(4)), ctx);
     expect(widgetCalls.at(-1)!.content).toEqual([creditAddedMessage(4)]);
-    expect(creditAddedMessage(4)).toBe("Payment received — $4.00 of usage added to your balance.");
+    // Real $5-pack grant ($3.75) confirms as round credits, never the granted dollars.
+    expect(creditAddedMessage(3.75)).toBe("Payment received — 50,000 credits added to your balance.");
     for (let i = 1; i < CONFIRM_TURNS; i++) {
       await renderMeter(deps(meAt(4)), ctx);
       expect(widgetCalls.at(-1)!.content).toEqual([creditAddedMessage(4)]);

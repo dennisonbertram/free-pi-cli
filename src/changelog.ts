@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.15",
+    highlights: [
+      "New startup screen: the model, a welcome line, and the five free-pi commands.",
+      "/support opens today's advertiser in your browser. It grants nothing.",
+    ],
+  },
+  {
     version: "0.2.14",
     highlights: [
       "No user-facing changes. This version tests the automated npm publish from GitHub Actions.",

@@ -17,6 +17,9 @@ export interface CreateAdsExtensionOptions {
   getToken: () => string | Promise<string>;
   sessionId: string;
   fetchImpl?: typeof fetch;
+  /** KTD7: mirrors the currently-shown banner ad's click URL to the caller
+   * (free-pi-cli's /support command) — undefined when no ad is shown. */
+  onBannerAd?: (clickUrl: string | undefined) => void;
 }
 
 const BANNER_REFRESH_MS = 10 * 60 * 1000;
@@ -34,7 +37,7 @@ export function createAdsExtension(opts: CreateAdsExtensionOptions): InlineExten
   return {
     name: "free-pi-ads",
     factory(pi: ExtensionAPI) {
-      const banner = createBannerRenderer();
+      const banner = createBannerRenderer({ onBannerAd: opts.onBannerAd });
       const inline = createInlineRenderer();
       // Timers are session-scoped resources: started in session_start, torn
       // down in session_shutdown, per pi's own extension guidance (never

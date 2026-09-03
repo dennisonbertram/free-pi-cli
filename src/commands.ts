@@ -17,6 +17,9 @@ export interface CreateCommandsOptions {
   fetchImpl?: typeof fetch;
   /** Injected in tests; defaults to browser.ts's opener. */
   openBrowserImpl?: typeof openBrowser;
+  /** KTD7: reads the click URL of the banner ad currently shown, set by
+   * pi-ads' onBannerAd callback. Undefined when no ad is shown. */
+  getAdvertiserUrl?: () => string | undefined;
 }
 
 /** Minimal shape of the command context we use — just the notify surface. */
@@ -135,6 +138,23 @@ export async function buyCredits(opts: CreateCommandsOptions, ctx: NotifyContext
   ctx.ui.notify(buyPageText(page.url), "info");
 }
 
+// ---- /support ---------------------------------------------------------------
+
+/**
+ * Opens today's advertiser (the click URL of the currently-shown banner ad)
+ * in the browser. KTD5/R10: no reward, no server call of its own — the only
+ * server contact is the browser following the click redirect. Never throws.
+ */
+export async function openAdvertiser(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
+  const url = opts.getAdvertiserUrl?.();
+  if (!url) {
+    ctx.ui.notify("No advertiser loaded yet.", "info");
+    return;
+  }
+  (opts.openBrowserImpl ?? openBrowser)(url);
+  ctx.ui.notify("Opening today's advertiser in your browser. Thank you for supporting free-pi.", "info");
+}
+
 // ---- /usage ---------------------------------------------------------------
 
 /** Same output as the free_pi_usage tool, with no model turn — works at the wall. Never throws. */
@@ -168,6 +188,10 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("buy-credits", {
         description: "Buy more usage ($5 or $10 packs, card or USDC) — opens the buy page.",
         handler: (_args, ctx) => buyCredits(opts, ctx),
+      });
+      pi.registerCommand("support", {
+        description: "Open today's advertiser in your browser to support free-pi.",
+        handler: (_args, ctx) => openAdvertiser(opts, ctx),
       });
     },
   };

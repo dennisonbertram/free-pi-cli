@@ -26,8 +26,8 @@ import {
   createAgentSessionServices,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
-import { ALLOWED_TOOL_NAMES, buildRuntimeOptions, type LaunchOptions } from "../src/pi-launch";
-import { SAFE_TOOLS } from "../src/provider";
+import { ALLOWED_TOOL_NAMES, buildRuntimeOptions, resolveModelName, type LaunchOptions } from "../src/pi-launch";
+import { MODEL_ID, SAFE_TOOLS } from "../src/provider";
 import { USAGE_TOOL_NAME } from "../src/usage-tool";
 import { BUY_TOOL_NAME } from "../src/buy-tool";
 
@@ -40,18 +40,20 @@ function baseOpts(baseUrl: string): LaunchOptions {
 }
 
 describe("closed extension list (#28 R20, SB1)", () => {
-  test("buildRuntimeOptions registers exactly the seven known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the eight known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
     // #226: the closed set deliberately grew to six with free-pi-buy-tool;
     // 2026-09-01: to seven with free-pi-error-notice (one readable line on a
-    // 429). Any further addition must be a reviewed, deliberate edit — never
-    // accidental.
+    // 429); 2026-09-03: to eight with free-pi-header (the startup header,
+    // U1/U2). Any further addition must be a reviewed, deliberate edit —
+    // never accidental.
     expect([...opts.extensionNames].sort()).toEqual(
       [
         "free-pi-ads",
         "free-pi-buy-tool",
         "free-pi-commands",
         "free-pi-error-notice",
+        "free-pi-header",
         "free-pi-provider",
         "free-pi-tool-guard",
         "free-pi-usage-tool",
@@ -66,9 +68,42 @@ describe("closed extension list (#28 R20, SB1)", () => {
     expect([...(settings.defaultTools ?? [])].sort()).toEqual([...SAFE_TOOLS].sort());
   });
 
+  test("settings carry quietStartup: true (KTD1, hides pi's own header)", () => {
+    const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-quiet");
+    const settings = opts.settingsManager.getGlobalSettings();
+    expect(settings.quietStartup).toBe(true);
+  });
+
   test("the strict SDK tools allowlist is exactly SAFE_TOOLS plus the two legitimate custom tools", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-c");
     expect([...opts.tools].sort()).toEqual([...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME].sort());
+  });
+
+  test("resolveModelName (KTD6): catalog name, then model id, then MODEL_ID", () => {
+    expect(
+      resolveModelName({
+        baseUrl: "http://example.test",
+        jwt: "t",
+        agentDir: tempDir("free-pi-agentdir-"),
+        models: [{ id: "x", name: "Nice Name" }],
+      }),
+    ).toBe("Nice Name");
+    expect(
+      resolveModelName({
+        baseUrl: "http://example.test",
+        jwt: "t",
+        agentDir: tempDir("free-pi-agentdir-"),
+        models: [],
+        model: "deepseek/deepseek-v4-flash",
+      }),
+    ).toBe("deepseek/deepseek-v4-flash");
+    expect(
+      resolveModelName({
+        baseUrl: "http://example.test",
+        jwt: "t",
+        agentDir: tempDir("free-pi-agentdir-"),
+      }),
+    ).toBe(MODEL_ID);
   });
 
   test("SAFE_TOOLS / ALLOWED_TOOL_NAMES never contain a subagent/background-execution tool name", () => {

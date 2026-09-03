@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
-import { buyCredits, closeOtherSession, runUpdate, showUsage, showWhatsNew } from "../src/commands";
+import { buyCredits, closeOtherSession, openAdvertiser, runUpdate, showUsage, showWhatsNew } from "../src/commands";
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
   return ((url: URL | string, init?: RequestInit) =>
@@ -169,6 +169,63 @@ describe("/buy-credits (buyCredits)", () => {
     const c2 = ctx();
     await buyCredits(throwing, c2.ctx);
     expect(c2.notes[0]!.m).toContain("offline");
+  });
+});
+
+describe("/support (openAdvertiser)", () => {
+  const ADVERTISER_URL = "https://api.freepi.ai/c/tok";
+
+  function opts(getAdvertiserUrl?: () => string | undefined) {
+    const requests: Array<{ url: string }> = [];
+    const opened: string[] = [];
+    const fetchImpl = (async (input: URL | string) => {
+      requests.push({ url: String(input) });
+      return Response.json({});
+    }) as unknown as typeof fetch;
+    return {
+      o: {
+        baseUrl: "https://api.test",
+        getToken: () => "jwt",
+        fetchImpl,
+        openBrowserImpl: (u: string) => void opened.push(u),
+        getAdvertiserUrl,
+      },
+      requests,
+      opened,
+    };
+  }
+
+  // Covers AE3.
+  test("advertiser loaded → opens the exact click URL once, R8 notify", async () => {
+    const { o, requests, opened } = opts(() => ADVERTISER_URL);
+    const { ctx, notes } = notifyCtx();
+    await openAdvertiser(o, ctx);
+    expect(opened).toEqual([ADVERTISER_URL]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.msg).toBe("Opening today's advertiser in your browser. Thank you for supporting free-pi.");
+    expect(notes[0]!.type).toBe("info");
+    // R10: no fetch call of openAdvertiser's own.
+    expect(requests).toEqual([]);
+  });
+
+  // Covers AE4.
+  test("no advertiser loaded (getAdvertiserUrl returns undefined) → R9 notify, nothing opened", async () => {
+    const { o, requests, opened } = opts(() => undefined);
+    const { ctx, notes } = notifyCtx();
+    await openAdvertiser(o, ctx);
+    expect(opened).toEqual([]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.msg).toBe("No advertiser loaded yet.");
+    expect(notes[0]!.type).toBe("info");
+    expect(requests).toEqual([]);
+  });
+
+  test("getAdvertiserUrl absent from options → same as no-advertiser case", async () => {
+    const { o, opened } = opts(undefined);
+    const { ctx, notes } = notifyCtx();
+    await openAdvertiser(o, ctx);
+    expect(opened).toEqual([]);
+    expect(notes[0]!.msg).toBe("No advertiser loaded yet.");
   });
 });
 

@@ -10,6 +10,13 @@ import { renderAdCard, renderPlainAdLine, type ThemeLike } from "./style";
 
 export const BANNER_WIDGET_ID = "freepi-ad";
 
+export interface BannerRendererOptions {
+  /** KTD7: mirrors the currently-shown banner's click URL out to /support.
+   * Called with the ad's click_url after a successful fetch, and with
+   * `undefined` when no ad is shown (204 or fetch failure). */
+  onBannerAd?: (clickUrl: string | undefined) => void;
+}
+
 export interface BannerRenderer {
   /** Fetch + render the banner slot. `columnsOverride` is a testing seam; production reads the real terminal width. */
   render(deps: AdsDeps, ctx: ExtensionContext, config: Config, columnsOverride?: number): Promise<void>;
@@ -22,7 +29,7 @@ export interface BannerRenderer {
  * a fresh click_token server-side, so this dedup only ever suppresses actual
  * repaints, never distinct impressions.
  */
-export function createBannerRenderer(): BannerRenderer {
+export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRenderer {
   let lastPostedToken: string | undefined;
 
   return {
@@ -30,6 +37,7 @@ export function createBannerRenderer(): BannerRenderer {
       const ad = await fetchAdNext(deps, "banner");
       if (!ad) {
         ctx.ui.setWidget(BANNER_WIDGET_ID, undefined);
+        opts.onBannerAd?.(undefined);
         return;
       }
 
@@ -41,6 +49,7 @@ export function createBannerRenderer(): BannerRenderer {
           : [renderPlainAdLine(ad.creative, ad.click_url, theme, columns)];
 
       ctx.ui.setWidget(BANNER_WIDGET_ID, lines);
+      opts.onBannerAd?.(ad.click_url);
 
       if (lastPostedToken !== ad.click_token) {
         lastPostedToken = ad.click_token;

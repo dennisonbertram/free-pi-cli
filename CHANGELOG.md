@@ -5,6 +5,14 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.15] - 2026-09-03
+
+### Added
+- A free-pi startup screen: name and model, a welcome line, and the five free-pi commands
+  (`/usage`, `/support`, `/buy-credits`, `/close-other-session`, `/update`). `ctrl+o` shows one line
+  of key hints. pi's own startup header, skill list, and extension list no longer print.
+- `/support` slash command: opens the advertiser currently shown in the banner. It grants nothing.
+
 ## [0.2.12] - 2026-09-01
 
 ### Added

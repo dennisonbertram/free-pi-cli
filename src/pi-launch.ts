@@ -17,6 +17,7 @@ import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
 import { createErrorNoticeExtension } from "./error-notice";
 import { createToolGuardExtension } from "./tool-guard";
 import { createFreePiCommandsExtension } from "./commands";
+import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
 
 export interface LaunchOptions {
@@ -67,6 +68,12 @@ export interface RuntimeBuildOptions {
  * launchPi() itself drives the real interactive TUI and is only exercised
  * when the bin actually runs, never in `bun test`.
  */
+/** KTD6: the display model name for the header — server catalog name, then
+ * the active model id, then the built-in default. Exported as a test seam. */
+export function resolveModelName(opts: LaunchOptions): string {
+  return opts.models?.[0]?.name || opts.model || MODEL_ID;
+}
+
 export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): RuntimeBuildOptions {
   const models = catalogModelsFor(opts);
   const providerExtension: InlineExtension = {
@@ -76,12 +83,21 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     },
   };
 
+  // KTD7: the only channel /support has to the currently-shown banner ad's
+  // click URL — set by the ads extension's onBannerAd, read by the commands
+  // extension's getAdvertiserUrl. Deliberately not a shared object/class:
+  // one field, one file, both extensions stay independently testable.
+  let advertiserUrl: string | undefined;
+
   // U7: banner/inline ads + usage meter, sandboxed to UI-only hooks (KTD9).
   // See packages/pi-ads/src/sandbox.test.ts for the enforced proof.
   const adsExtension: InlineExtension = createAdsExtension({
     baseUrl: opts.baseUrl,
     getToken: () => opts.jwt,
     sessionId,
+    onBannerAd: (u) => {
+      advertiserUrl = u;
+    },
   });
 
   // U5 (#17): read-only "what's my usage" tool. Outside packages/pi-ads on
@@ -117,10 +133,17 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   const commandsExtension: InlineExtension = createFreePiCommandsExtension({
     baseUrl: opts.baseUrl,
     getToken: () => opts.jwt,
+    getAdvertiserUrl: () => advertiserUrl,
   });
 
-  // Closed, SEVEN-item list — SB1's structural test fails if a future edit
-  // adds an eighth extension or drops one of these. Settings deliberately
+  // U1/U2 (2026-09-03): free-pi's own startup header, replacing pi's
+  // built-in one (hidden via quietStartup below). KTD1, KTD6.
+  const headerExtension: InlineExtension = createHeaderExtension({
+    modelName: resolveModelName(opts),
+  });
+
+  // Closed, EIGHT-item list — SB1's structural test fails if a future edit
+  // adds a ninth extension or drops one of these. Settings deliberately
   // omit `packages` (no pi-packages installed, so no MCP adapter / subagent
   // extension can be pulled in) and pin `defaultTools` to the built-in tool
   // set (never includes a subagent/background-bash/MCP tool per pi's own
@@ -135,6 +158,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     errorNoticeExtension,
     toolGuardExtension,
     commandsExtension,
+    headerExtension,
   ];
 
   const settingsManager = SettingsManager.inMemory({
@@ -144,6 +168,9 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     defaultModel: models[0]!.id,
     defaultTools: [...SAFE_TOOLS],
     packages: [],
+    // KTD1: hides pi's own startup header/skills/extensions dump so the
+    // free-pi-header extension's setHeader is the only header shown (R5).
+    quietStartup: true,
   });
 
   return {

@@ -22,7 +22,7 @@
     "src/node-check.ts": "a9efdc14e745840c360da48e1a366ed6c14ea229435523785b9c6208cc087c0e",
     "src/onboarding.ts": "3df6748796d6474904d7145e434ca03a2862dd62e44e613007214e341071c5a1",
     "src/paths.ts": "e0cc618a374adec25e7cfd39e7e1bb84bf021b7800662417348db40c804c3c04",
-    "src/pi-launch.ts": "ad3f1a184fb9e97c19ce5c80728b50a309dcd2b520318e3edd6cfb2b7113da2f",
+    "src/pi-launch.ts": "cb6d97538f6c2649526dfe7e8b50d53a4d2e671c17f18b59491533ae3a0dea43",
     "src/prompt.ts": "97c38f0c8f70d5529b31fcc9c694fdc22def3bba577d98d3da03a94048672d02",
     "src/provider-lock.ts": "a279dc3c037f3c6d8f38fa6cdeda74792c0930fc28a8a40c525cca8572d69114",
     "src/provider.ts": "d2336bca8912ff59bfda68fdf594637b09e5d8fddaf21c15c8b20891c20b95cf",

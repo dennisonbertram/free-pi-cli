@@ -224,6 +224,18 @@ export async function createSessionManager(
   return api.create(cwd, sessionDir);
 }
 
+/**
+ * free-pi-cli users installed `free-pi-cli` (via npx), never `pi` directly —
+ * pi's own interactive mode otherwise shows a "New version available, run
+ * `pi update`" banner (checkForNewPiVersion in the SDK, gated only by this
+ * env var) that names a command our users don't have. free-pi-cli already
+ * has its own correctly-branded update check (update-check.ts / run.ts,
+ * "run `npx free-pi-cli@latest`"), so pi's own banner is pure noise here —
+ * suppress it. Does not affect pi's separate model-catalog refresh (gated by
+ * PI_OFFLINE instead), which stays on.
+ */
+process.env.PI_SKIP_VERSION_CHECK = "1";
+
 export async function launchPi(opts: LaunchOptions): Promise<string> {
   const cwd = process.cwd();
   const sessionDir = getSessionDir(cwd, opts.agentDir);

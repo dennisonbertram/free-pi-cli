@@ -7,6 +7,7 @@
 // without a real pi TUI: callers pass a `ThemeLike` (the real `Theme` class
 // from @earendil-works/pi-coding-agent satisfies this structurally) and an
 // explicit `columns` width instead of reading the terminal directly.
+import { createHash } from "node:crypto";
 import type { AdCreative } from "@freepi/shared";
 
 /** Structural subset of pi's `Theme` class actually used for styling. */
@@ -62,8 +63,9 @@ function pad(text: string, width: number): string {
  * feedback, 2026-08-18, #61). Clickable where OSC 8 is supported; a clean,
  * legible destination where it is not.
  */
-function osc8(text: string, url: string): string {
-  return `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`;
+function osc8(text: string, url: string, id?: string): string {
+  const params = id ? `id=${id}` : "";
+  return `\x1b]8;${params};${url}\x07${text}\x1b]8;;\x07`;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,23 +92,27 @@ export function renderAdCard(
   const top = `┌${label}${"─".repeat(Math.max(0, innerWidth + 2 - label.length))}┐`;
   const bottom = `└${"─".repeat(innerWidth + 2)}┘`;
 
-  const row = (text: string, opts?: { linkUrl?: string; bold?: boolean }): string => {
+  // KTD2: a short hex digest of the (sanitized) click URL, not the click
+  // token itself, so the id visible in the escape stream is stable for
+  // hover-grouping without doubling as a second copy of the tracker.
+  const linkId = createHash("sha256").update(url).digest("hex").slice(0, 12);
+
+  const row = (text: string, opts?: { bold?: boolean }): string => {
     const plain = pad(truncate(text, innerWidth), innerWidth);
     let styled = theme.fg("accent", plain);
     if (opts?.bold) styled = theme.bold(styled);
-    const content = opts?.linkUrl ? osc8(styled, opts.linkUrl) : styled;
-    return `│ ${content} │`;
+    return `│ ${styled} │`;
   };
 
+  // R1/R2: every row — including both borders — carries the same OSC 8
+  // link and id, so a terminal that groups by id treats the whole card as
+  // one clickable link, not just the CTA row.
   return [
-    theme.fg("borderAccent", top),
-    row(headline, { bold: true }),
-    row(body),
-    // #61: link the CTA (which names the destination) — never show the raw
-    // /c/<token> tracker URL as visible text. `url` stays the OSC-8 target so
-    // click-tracking/billing is preserved.
-    row(`▸ ${cta}`, { linkUrl: url }),
-    theme.fg("borderAccent", bottom),
+    theme.fg("borderAccent", osc8(top, url, linkId)),
+    osc8(row(headline, { bold: true }), url, linkId),
+    osc8(row(body), url, linkId),
+    osc8(row(`▸ ${cta}`), url, linkId),
+    theme.fg("borderAccent", osc8(bottom, url, linkId)),
   ];
 }
 

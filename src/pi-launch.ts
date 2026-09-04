@@ -14,6 +14,7 @@ import { join, resolve } from "node:path";
 import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
 import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
+import { createDocsToolExtension, DOCS_TOOL_NAME } from "./docs-tool";
 import { createErrorNoticeExtension } from "./error-notice";
 import { createToolGuardExtension } from "./tool-guard";
 import { createFreePiCommandsExtension } from "./commands";
@@ -50,7 +51,7 @@ function catalogModelsFor(opts: LaunchOptions): CatalogModel[] {
 //      `--tools` flag, "only the listed tool names are enabled").
 //   2. Passed to the tool-guard extension, which blocks + reports anything
 //      outside this set that still somehow reaches a tool_call event.
-export const ALLOWED_TOOL_NAMES: readonly string[] = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME];
+export const ALLOWED_TOOL_NAMES: readonly string[] = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME];
 
 export interface RuntimeBuildOptions {
   settingsManager: SettingsManager;
@@ -115,6 +116,11 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
+  // U2 (2026-09-03): read-only "about free-pi" docs tool. Outside
+  // packages/pi-ads on the same grounds as the usage/buy tools (KTD4) —
+  // see docs-tool.ts's header comment.
+  const docsToolExtension: InlineExtension = createDocsToolExtension();
+
   // 2026-09-01: one readable, server-owned line when a turn is rejected
   // (read from turn_end's error envelope). See error-notice.ts.
   const errorNoticeExtension: InlineExtension = createErrorNoticeExtension();
@@ -142,8 +148,8 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     modelName: resolveModelName(opts),
   });
 
-  // Closed, EIGHT-item list — SB1's structural test fails if a future edit
-  // adds a ninth extension or drops one of these. Settings deliberately
+  // Closed, NINE-item list — SB1's structural test fails if a future edit
+  // adds a tenth extension or drops one of these. Settings deliberately
   // omit `packages` (no pi-packages installed, so no MCP adapter / subagent
   // extension can be pulled in) and pin `defaultTools` to the built-in tool
   // set (never includes a subagent/background-bash/MCP tool per pi's own
@@ -155,6 +161,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     adsExtension,
     usageToolExtension,
     buyToolExtension,
+    docsToolExtension,
     errorNoticeExtension,
     toolGuardExtension,
     commandsExtension,

@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.16",
+    highlights: [
+      "The whole ad card is now one clickable link.",
+      "Ask the agent about free-pi: it can explain the allowance, credits, and commands.",
+    ],
+  },
+  {
     version: "0.2.15",
     highlights: [
       "New startup screen: the model, a welcome line, and the five free-pi commands.",

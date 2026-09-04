@@ -5,6 +5,14 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.16] - 2026-09-03
+
+### Added
+- The whole ad card is one clickable link. Every row of the card carries the same link, so a
+  click anywhere on the card opens the advertiser.
+- `free_pi_docs` tool: the agent can answer questions about free-pi itself (what it is, the
+  free allowance, credits, and the slash commands) from a built-in guide.
+
 ## [0.2.15] - 2026-09-03
 
 ### Added

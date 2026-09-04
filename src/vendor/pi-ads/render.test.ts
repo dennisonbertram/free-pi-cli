@@ -277,8 +277,8 @@ describe("#61 ad link: CTA visible, tracker URL only as the OSC-8 target", () =>
   const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
   const creative = { headline: "H", body: "B", cta: "get the skill @ slop.cash", accent: "#fff" };
   const clickUrl = "https://api.freepi.ai/c/8eb56276-fda6-4aae-a800-b40ad39abcde";
-  // Strip OSC-8 open (`ESC ] 8 ; ; <url> BEL`) + close so only visible text remains.
-  const stripOsc8 = (s: string) => s.replace(/\x1b\]8;;[^\x07]*\x07/g, "");
+  // Strip OSC-8 open (`ESC ] 8 ; [id=..];  <url> BEL`) + close so only visible text remains.
+  const stripOsc8 = (s: string) => s.replace(/\x1b\]8;[^;\x07]*;[^\x07]*\x07/g, "");
 
   test("framed card shows the CTA, hides the raw tracker, keeps the link target", () => {
     const lines = renderAdCard(creative, clickUrl, theme, 80);
@@ -287,7 +287,7 @@ describe("#61 ad link: CTA visible, tracker URL only as the OSC-8 target", () =>
     expect(visible).toContain("get the skill @ slop.cash");
     expect(visible).not.toContain("/c/");
     expect(visible).not.toContain(clickUrl);
-    expect(joined).toContain(`\x1b]8;;${clickUrl}\x07`); // still clickable/tracked
+    expect(joined).toContain(`;${clickUrl}\x07`); // still clickable/tracked
   });
 
   test("narrow plain line does the same", () => {
@@ -296,6 +296,94 @@ describe("#61 ad link: CTA visible, tracker URL only as the OSC-8 target", () =>
     expect(visible).toContain("get the skill @ slop.cash");
     expect(visible).not.toContain("/c/");
     expect(line).toContain(`\x1b]8;;${clickUrl}\x07`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// U1: whole card is one OSC 8 link with a shared id (R1, R2, R3, R4)
+// ---------------------------------------------------------------------------
+
+describe("U1: whole ad card is one clickable link", () => {
+  const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
+  const creative = { headline: "Headline", body: "Body copy", cta: "Click here", accent: "#fff" };
+  const clickUrl = "https://api.freepi.ai/c/tok";
+  const stripOsc8 = (s: string) => s.replace(/\x1b\]8;[^;\x07]*;[^\x07]*\x07/g, "");
+  const idOf = (line: string): string => {
+    const m = line.match(/\x1b\]8;id=([0-9a-f]+);/);
+    if (!m) throw new Error(`no OSC 8 id found in: ${JSON.stringify(line)}`);
+    return m[1]!;
+  };
+
+  test("every one of the five lines carries the same id and the click URL, plus a close sequence", () => {
+    const lines = renderAdCard(creative, clickUrl, theme, 80);
+    expect(lines.length).toBe(5);
+    const ids = lines.map(idOf);
+    expect(new Set(ids).size).toBe(1);
+    for (const line of lines) {
+      expect(line).toContain(`;${clickUrl}\x07`);
+      expect(line).toContain("\x1b]8;;\x07"); // close sequence
+    }
+  });
+
+  test("the id is stable across two renders of the same URL and differs for a different URL", () => {
+    const idA1 = idOf(renderAdCard(creative, clickUrl, theme, 80)[0]!);
+    const idA2 = idOf(renderAdCard(creative, clickUrl, theme, 80)[0]!);
+    const idB = idOf(renderAdCard(creative, "https://api.freepi.ai/c/other", theme, 80)[0]!);
+    expect(idA1).toBe(idA2);
+    expect(idA1).not.toBe(idB);
+  });
+
+  test("visible text with escapes stripped is byte-identical to the pre-change output at 60, 80, 140 cols", () => {
+    const expected: Record<number, string[]> = {
+      60: [
+        "┌ AD ░▒▓ ────────────────────────────────────────────────┐",
+        "│ Headline                                               │",
+        "│ Body copy                                              │",
+        "│ ▸ Click here                                           │",
+        "└────────────────────────────────────────────────────────┘",
+      ],
+      80: [
+        "┌ AD ░▒▓ ────────────────────────────────────────────────────────────────────┐",
+        "│ Headline                                                                   │",
+        "│ Body copy                                                                  │",
+        "│ ▸ Click here                                                               │",
+        "└────────────────────────────────────────────────────────────────────────────┘",
+      ],
+      140: [
+        "┌ AD ░▒▓ ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐",
+        "│ Headline                                                                                                                               │",
+        "│ Body copy                                                                                                                              │",
+        "│ ▸ Click here                                                                                                                           │",
+        "└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘",
+      ],
+    };
+    for (const width of [60, 80, 140] as const) {
+      const lines = renderAdCard(creative, clickUrl, theme, width).map(stripOsc8);
+      expect(lines).toEqual(expected[width]!);
+    }
+  });
+
+  test("the CTA text is still visible and the raw /c/ URL is still not visible", () => {
+    const lines = renderAdCard(creative, clickUrl, theme, 80).map(stripOsc8);
+    const joined = lines.join("\n");
+    expect(joined).toContain("Click here");
+    expect(joined).not.toContain("/c/");
+  });
+
+  test("renderPlainAdLine output is unchanged (still the id-less single-URL form)", () => {
+    const line = renderPlainAdLine(creative, clickUrl, theme, 80);
+    expect(line).toContain(`\x1b]8;;${clickUrl}\x07`);
+    expect(line).not.toMatch(/\x1b\]8;id=/);
+  });
+
+  test("a creative with an injected OSC 8 sequence in the headline is sanitized: no second link target appears", () => {
+    const evilCreative = { ...creative, headline: "hi\x1b]8;;evil\x07click\x1b]8;;\x07" };
+    const lines = renderAdCard(evilCreative, clickUrl, theme, 80);
+    const joined = lines.join("\n");
+    expect(joined).not.toContain("evil");
+    // exactly one distinct link target across the whole card: the click URL.
+    const targets = new Set([...joined.matchAll(/\x1b\]8;[^;\x07]*;([^\x07]*)\x07/g)].map((m) => m[1]).filter((t) => t));
+    expect(targets).toEqual(new Set([clickUrl]));
   });
 });
 

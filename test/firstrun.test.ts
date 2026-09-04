@@ -441,10 +441,11 @@ describe("self-update wiring in run.ts (#37 U1)", () => {
     stub.stop();
   });
 
-  test("notice + self-update falls back -> still prints the phase-1 notice and launches pi", async () => {
+  test("notice + self-update falls back -> carries the version into the header banner and launches pi", async () => {
     const stub = startStub();
     const dir = tempDir();
     let piLaunched = false;
+    let launchedWith: { updateLatest?: string } | undefined;
     const logs: string[] = [];
 
     const code = await run(
@@ -453,8 +454,9 @@ describe("self-update wiring in run.ts (#37 U1)", () => {
         agentDir: dir,
         credentialsPath: join(dir, "credentials.json"),
         log: (m) => logs.push(m),
-        launchPi: async () => {
+        launchPi: async (opts) => {
           piLaunched = true;
+          launchedWith = opts;
         },
         checkClientVersion: async () => ({ action: "notice", latest: "0.9.0" }),
         maybeSelfUpdate: async () => "notice",
@@ -463,7 +465,32 @@ describe("self-update wiring in run.ts (#37 U1)", () => {
 
     expect(code).toBe(0);
     expect(piLaunched).toBe(true);
-    expect(logs.some((l) => l.includes("update available") && l.includes("0.9.0"))).toBe(true);
+    // The notice now rides into the session header as a boxed banner
+    // (header.ts's updateBannerLines) rather than a log line the TUI
+    // immediately scrolls past.
+    expect(launchedWith?.updateLatest).toBe("0.9.0");
+    stub.stop();
+  });
+
+  test("no update available -> no banner version is passed to the session", async () => {
+    const stub = startStub();
+    const dir = tempDir();
+    let launchedWith: { updateLatest?: string } | undefined;
+
+    const code = await run(
+      baseDeps({
+        baseUrl: stub.url,
+        agentDir: dir,
+        credentialsPath: join(dir, "credentials.json"),
+        launchPi: async (opts) => {
+          launchedWith = opts;
+        },
+        checkClientVersion: async () => ({ action: "ok" }),
+      }),
+    );
+
+    expect(code).toBe(0);
+    expect(launchedWith?.updateLatest).toBeUndefined();
     stub.stop();
   });
 });

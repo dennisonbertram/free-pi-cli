@@ -110,6 +110,8 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
   // or consent was just accepted and loginFlow() just ran, so a version
   // check is always warranted.
   const versionCheck = await deps.checkClientVersion(deps.baseUrl, CLI_VERSION);
+  /** Set when a newer version exists and self-update fell back to notifying. */
+  let updateLatest: string | undefined;
   if (versionCheck.action !== "ok") {
     // #37 U1: try an in-place self-update first; only fall back to the
     // phase-1 notice/hard-stop text when self-update itself falls back.
@@ -120,9 +122,10 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
       return 1;
     }
     if (outcome === "notice") {
-      deps.log(
-        `update available: ${versionCheck.latest}, you have ${CLI_VERSION}; run \`npx free-pi-cli@latest\``,
-      );
+      // Carried into the session header as a boxed "Update Available" banner
+      // (header.ts) rather than a log line the TUI immediately scrolls past —
+      // this is free-pi's replacement for pi's own suppressed banner.
+      updateLatest = versionCheck.latest;
     }
     // "updated-continue": self-update already logged its own line; proceed.
   }
@@ -145,6 +148,7 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
     session: sessionArg.session,
     model: versionCheck.model,
     models: versionCheck.models,
+    updateLatest,
   });
 
   // First user feedback (2026-08-17): after closing the terminal, users didn't

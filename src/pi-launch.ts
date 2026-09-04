@@ -20,6 +20,7 @@ import { createToolGuardExtension } from "./tool-guard";
 import { createFreePiCommandsExtension } from "./commands";
 import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
+import { patchResumeLine } from "./resume-line";
 
 export interface LaunchOptions {
   baseUrl: string;
@@ -31,6 +32,10 @@ export interface LaunchOptions {
   /** #140: the selectable model catalog from /client-version. When present the
    * picker offers all of them; empty/absent falls back to the single `model`. */
   models?: CatalogModel[];
+  /** A newer free-pi-cli version, when /client-version reported one and the
+   * self-update fell back to notifying. Renders the header's update banner —
+   * free-pi's replacement for pi's own (suppressed) `pi update` banner. */
+  updateLatest?: string;
 }
 
 /** The models to register + scope the picker to: the server catalog when it
@@ -146,6 +151,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   // built-in one (hidden via quietStartup below). KTD1, KTD6.
   const headerExtension: InlineExtension = createHeaderExtension({
     modelName: resolveModelName(opts),
+    updateLatest: opts.updateLatest,
   });
 
   // Closed, NINE-item list — SB1's structural test fails if a future edit
@@ -235,6 +241,11 @@ export async function createSessionManager(
  * PI_OFFLINE instead), which stays on.
  */
 process.env.PI_SKIP_VERSION_CHECK = "1";
+
+// Same brand-leak problem at the other end of the session: pi's exit path
+// prints "To resume this session: pi --session <id>" straight to stdout and
+// then exits the process. See resume-line.ts.
+patchResumeLine(process.stdout);
 
 export async function launchPi(opts: LaunchOptions): Promise<string> {
   const cwd = process.cwd();

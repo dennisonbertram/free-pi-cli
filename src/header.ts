@@ -40,6 +40,31 @@ const CONSENT_LINE_2 = "See /tos and /privacy-policy.";
 
 const EXPANDED_HINT_LINE = "esc interrupt · ctrl+c clear / exit · / commands · ! bash";
 
+/**
+ * The update notice, in the same boxed shape pi uses for its own "Update
+ * Available" banner — but for free-pi-cli's version, pointing at /update.
+ * pi's own banner is suppressed (PI_SKIP_VERSION_CHECK, see pi-launch.ts)
+ * because it names `pi update`, a command our users don't have.
+ */
+const UPDATE_BORDER_CHAR = "─";
+const UPDATE_MAX_WIDTH = 100;
+
+export function updateBannerLines(theme: ThemeLike, latest: string, width: number): string[] {
+  const headline = "Update Available";
+  const detail = `New version ${latest} is available. Run /update`;
+  // One column is reserved for the left margin the caller adds.
+  const inner = Math.max(0, Math.min(width - 1, UPDATE_MAX_WIDTH));
+  if (inner <= 0) return [];
+  const border = theme.fg("warning", UPDATE_BORDER_CHAR.repeat(inner));
+  return [
+    "",
+    border,
+    theme.bold(theme.fg("warning", truncate(headline, inner))),
+    theme.fg("dim", truncate(detail, inner)),
+    border,
+  ];
+}
+
 function truncate(text: string, maxWidth: number): string {
   if (maxWidth <= 0) return "";
   if (text.length <= maxWidth) return text;
@@ -57,6 +82,8 @@ export function headerLines(
   modelName: string,
   expanded: boolean,
   width: number = Number.POSITIVE_INFINITY,
+  /** Newer free-pi-cli version, when the server reported one. Renders the update banner. */
+  updateLatest?: string,
 ): string[] {
   // One column is reserved for the left margin added below.
   const inner = width - 1;
@@ -89,12 +116,15 @@ export function headerLines(
     "",
   ];
   if (expanded) lines.push(dim(EXPANDED_HINT_LINE));
+  if (updateLatest) lines.push(...updateBannerLines(theme, updateLatest, width));
   // pi indents its own header and widget lines by one column; match it.
   return lines.map((line) => (line === "" ? line : ` ${line}`));
 }
 
 export interface CreateHeaderExtensionOptions {
   modelName: string;
+  /** Newer free-pi-cli version reported by /client-version, when one exists. */
+  updateLatest?: string;
 }
 
 /** R1-R7: registers the `free-pi-header` inline extension. session_start only. */
@@ -107,7 +137,7 @@ export function createHeaderExtension(opts: CreateHeaderExtensionOptions): Inlin
           let expanded = false;
           return {
             render(width: number): string[] {
-              return headerLines(theme, opts.modelName, expanded, width);
+              return headerLines(theme, opts.modelName, expanded, width, opts.updateLatest);
             },
             invalidate(): void {
               // no-op: headerLines has no cached state to drop.

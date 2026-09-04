@@ -190,3 +190,42 @@ describe("consent lines at 100 columns", () => {
     }
   });
 });
+
+describe("update banner (replaces pi's own suppressed `pi update` banner)", () => {
+  const theme = fakeTheme();
+
+  test("no banner when no newer version was reported", () => {
+    const lines = headerLines(theme, MODEL, false, 100);
+    expect(lines.some((l) => l.includes("Update Available"))).toBe(false);
+  });
+
+  test("banner appears, names the version, and points at /update (never `pi update`)", () => {
+    const lines = headerLines(theme, MODEL, false, 100, "0.2.19");
+    const text = lines.join("\n");
+    expect(text).toContain("Update Available");
+    expect(text).toContain("New version 0.2.19 is available. Run /update");
+    expect(text).not.toContain("pi update");
+    expect(text).not.toContain("npx free-pi-cli@latest");
+  });
+
+  test("banner is bordered above and below in the warning color", () => {
+    const lines = headerLines(theme, MODEL, false, 100, "0.2.19");
+    const borders = lines.filter((l) => l.includes("<fg:warning>─"));
+    expect(borders).toHaveLength(2);
+  });
+
+  test("banner renders last, after the collapsed header body", () => {
+    const withBanner = headerLines(theme, MODEL, false, 100, "0.2.19");
+    const without = headerLines(theme, MODEL, false, 100);
+    expect(withBanner.slice(0, without.length)).toEqual(without);
+    expect(withBanner.length).toBeGreaterThan(without.length);
+  });
+
+  test("does not overflow a narrow terminal", () => {
+    const lines = headerLines(theme, MODEL, false, 30, "0.2.19");
+    for (const line of lines) {
+      const plain = line.replace(/<\/?b>|<fg:[a-z]+>|<\/fg>/g, "");
+      expect(plain.length).toBeLessThanOrEqual(30);
+    }
+  });
+});

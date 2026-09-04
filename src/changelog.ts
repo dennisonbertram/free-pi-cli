@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.19",
+    highlights: [
+      "More models to pick from: Solar Pro 4, GLM 5.3 Flash, and a Groq speed lane. /model to switch.",
+      "The model picker now shows how far each model stretches your daily allowance.",
+      "Update notices and the resume command now name free-pi, not pi.",
+    ],
+  },
+  {
     version: "0.2.18",
     highlights: [
       "Clearer wording in the startup consent line.",

@@ -1,6 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
-import { buyCredits, closeOtherSession, openAdvertiser, runUpdate, showUsage, showWhatsNew } from "../src/commands";
+import {
+  buyCredits,
+  closeOtherSession,
+  openAdvertiser,
+  openPrivacyPolicy,
+  openTos,
+  PRIVACY_URL,
+  runUpdate,
+  showUsage,
+  showWhatsNew,
+  TERMS_URL,
+} from "../src/commands";
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
   return ((url: URL | string, init?: RequestInit) =>
@@ -226,6 +237,44 @@ describe("/support (openAdvertiser)", () => {
     await openAdvertiser(o, ctx);
     expect(opened).toEqual([]);
     expect(notes[0]!.msg).toBe("No advertiser loaded yet.");
+  });
+});
+
+describe("/tos (openTos)", () => {
+  test("opens the terms URL and notifies with it; no fetch made", async () => {
+    const requests: string[] = [];
+    const opened: string[] = [];
+    const fetchImpl = (async (input: URL | string) => {
+      requests.push(String(input));
+      return Response.json({});
+    }) as unknown as typeof fetch;
+    const o = { baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl, openBrowserImpl: (u: string) => void opened.push(u) };
+    const { ctx, notes } = notifyCtx();
+    await openTos(o, ctx);
+    expect(opened).toEqual([TERMS_URL]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.msg).toBe(`Opening the Terms of Service in your browser: ${TERMS_URL}`);
+    expect(notes[0]?.type).toBe("info");
+    expect(requests).toEqual([]);
+  });
+});
+
+describe("/privacy-policy (openPrivacyPolicy)", () => {
+  test("opens the privacy URL and notifies with it; no fetch made", async () => {
+    const requests: string[] = [];
+    const opened: string[] = [];
+    const fetchImpl = (async (input: URL | string) => {
+      requests.push(String(input));
+      return Response.json({});
+    }) as unknown as typeof fetch;
+    const o = { baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl, openBrowserImpl: (u: string) => void opened.push(u) };
+    const { ctx, notes } = notifyCtx();
+    await openPrivacyPolicy(o, ctx);
+    expect(opened).toEqual([PRIVACY_URL]);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]?.msg).toBe(`Opening the Privacy Policy in your browser: ${PRIVACY_URL}`);
+    expect(notes[0]?.type).toBe("info");
+    expect(requests).toEqual([]);
   });
 });
 

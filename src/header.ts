@@ -21,6 +21,8 @@ export interface TuiLike {
 const COMMANDS: ReadonlyArray<{ name: string; description: string }> = [
   { name: "/usage", description: "spend and remaining budget today" },
   { name: "/support", description: "visit today's advertiser" },
+  { name: "/tos", description: "terms of service" },
+  { name: "/privacy-policy", description: "privacy policy" },
   { name: "/buy-credits", description: "get more usage" },
   { name: "/close-other-session", description: "free a stuck session on another machine" },
   { name: "/update", description: "get the latest free-pi" },
@@ -30,6 +32,11 @@ const NAME_COLUMN = 24; // 2 leading spaces + longest name (20) + 2 spaces gap
 
 const WELCOME_LINE =
   "Welcome to Free Pi, ad-supported inference. Please visit our advertisers to support us.";
+
+// Split into two lines rather than one 106-char line, so it fits the 100-column
+// truncation rule in headerLines without ever being cut off with an ellipsis.
+const CONSENT_LINE_1 = "Usage is funded by ads and by training on your sessions. By using free-pi you consent.";
+const CONSENT_LINE_2 = "See /tos and /privacy-policy.";
 
 const EXPANDED_HINT_LINE = "esc interrupt · ctrl+c clear / exit · / commands · ! bash";
 
@@ -69,7 +76,18 @@ export function headerLines(
 
   const dim = (plain: string) => fit(plain, () => theme.fg("dim", plain));
 
-  const lines = ["", title, "", dim(WELCOME_LINE), "", ...commandLines, ""];
+  const lines = [
+    "",
+    title,
+    "",
+    dim(WELCOME_LINE),
+    "",
+    dim(CONSENT_LINE_1),
+    dim(CONSENT_LINE_2),
+    "",
+    ...commandLines,
+    "",
+  ];
   if (expanded) lines.push(dim(EXPANDED_HINT_LINE));
   // pi indents its own header and widget lines by one column; match it.
   return lines.map((line) => (line === "" ? line : ` ${line}`));

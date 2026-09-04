@@ -29,6 +29,8 @@ first. Purchased credits cover use beyond it and do not expire.
 ## Commands
 - \`/usage\` — spend and remaining budget today
 - \`/support\` — visit today's advertiser
+- \`/tos\` — open the Terms of Service
+- \`/privacy-policy\` — open the Privacy Policy
 - \`/buy-credits\` — get more usage
 - \`/close-other-session\` — free a stuck session on another machine
 - \`/update\` — get the latest free-pi

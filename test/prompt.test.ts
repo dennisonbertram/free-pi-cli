@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CONSENT_TEXT, NON_INTERACTIVE_CONSENT_TEXT, parseConsentAnswer } from "../src/consent";
+import { CONSENT_TEXT, CONSENT_VERSION, NON_INTERACTIVE_CONSENT_TEXT, parseConsentAnswer } from "../src/consent";
 import { promptConsent, type ConsentPromptDeps } from "../src/prompt";
 
 function recorder(overrides: Partial<ConsentPromptDeps> = {}) {
@@ -43,6 +43,25 @@ describe("promptConsent — interactive path unchanged", () => {
   test("n -> false; empty (just Enter) -> false — decline stays the default", async () => {
     expect(await promptConsent(recorder({ askLine: async () => "n" }).deps)).toBe(false);
     expect(await promptConsent(recorder({ askLine: async () => "" }).deps)).toBe(false);
+  });
+});
+
+describe("CONSENT_VERSION and CONSENT_TEXT (v2: training + no-opt-out + legal links)", () => {
+  test("version is 2", () => {
+    expect(CONSENT_VERSION).toBe("2");
+  });
+
+  test("text covers training, sharing/selling, no opt-out, alpha status, and links to the legal pages", () => {
+    for (const fragment of [
+      "used to train models",
+      "share or sell",
+      "no opt-out",
+      "alpha",
+      "https://freepi.ai/terms",
+      "https://freepi.ai/privacy",
+    ]) {
+      expect(CONSENT_TEXT).toContain(fragment);
+    }
   });
 });
 

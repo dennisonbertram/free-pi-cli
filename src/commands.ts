@@ -155,6 +155,23 @@ export async function openAdvertiser(opts: CreateCommandsOptions, ctx: NotifyCon
   ctx.ui.notify("Opening today's advertiser in your browser. Thank you for supporting free-pi.", "info");
 }
 
+// ---- /tos / /privacy-policy -------------------------------------------------
+
+export const TERMS_URL = "https://freepi.ai/terms";
+export const PRIVACY_URL = "https://freepi.ai/privacy";
+
+/** Opens the Terms of Service in the browser. Never throws. */
+export async function openTos(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
+  (opts.openBrowserImpl ?? openBrowser)(TERMS_URL);
+  ctx.ui.notify(`Opening the Terms of Service in your browser: ${TERMS_URL}`, "info");
+}
+
+/** Opens the Privacy Policy in the browser. Never throws. */
+export async function openPrivacyPolicy(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
+  (opts.openBrowserImpl ?? openBrowser)(PRIVACY_URL);
+  ctx.ui.notify(`Opening the Privacy Policy in your browser: ${PRIVACY_URL}`, "info");
+}
+
 // ---- /usage ---------------------------------------------------------------
 
 /** Same output as the free_pi_usage tool, with no model turn — works at the wall. Never throws. */
@@ -192,6 +209,14 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("support", {
         description: "Open today's advertiser in your browser to support free-pi.",
         handler: (_args, ctx) => openAdvertiser(opts, ctx),
+      });
+      pi.registerCommand("tos", {
+        description: "Open the free-pi Terms of Service in your browser.",
+        handler: (_args, ctx) => openTos(opts, ctx),
+      });
+      pi.registerCommand("privacy-policy", {
+        description: "Open the free-pi Privacy Policy in your browser.",
+        handler: (_args, ctx) => openPrivacyPolicy(opts, ctx),
       });
     },
   };

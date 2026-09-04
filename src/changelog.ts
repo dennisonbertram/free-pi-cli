@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.17",
+    highlights: [
+      "/tos and /privacy-policy open the Terms and Privacy Policy in your browser.",
+      "The consent screen and startup header now state that usage is funded by ads and training.",
+    ],
+  },
+  {
     version: "0.2.16",
     highlights: [
       "The whole ad card is now one clickable link.",

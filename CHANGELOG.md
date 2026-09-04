@@ -5,6 +5,14 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.17] - 2026-09-03
+
+### Added
+- `/tos` and `/privacy-policy` slash commands: open the Terms of Service and Privacy Policy in
+  your browser.
+- The consent screen and startup header now state that usage is funded by ads and by training
+  on your sessions.
+
 ## [0.2.16] - 2026-09-03
 
 ### Added

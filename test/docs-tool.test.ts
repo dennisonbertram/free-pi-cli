@@ -100,8 +100,17 @@ describe("FREE_PI_DOCS content (R7, R9)", () => {
     }
   });
 
-  test("contains the six command names", () => {
-    for (const cmd of ["/usage", "/support", "/buy-credits", "/close-other-session", "/update", "/whats-new"]) {
+  test("contains the eight command names", () => {
+    for (const cmd of [
+      "/usage",
+      "/support",
+      "/tos",
+      "/privacy-policy",
+      "/buy-credits",
+      "/close-other-session",
+      "/update",
+      "/whats-new",
+    ]) {
       expect(FREE_PI_DOCS).toContain(cmd);
     }
   });

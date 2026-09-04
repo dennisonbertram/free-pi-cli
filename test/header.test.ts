@@ -29,7 +29,7 @@ describe("headerLines (R1-R3, R6)", () => {
     expect(lines[2]).toBe(""); // blank
     expect(lines[3]).toContain("Welcome to Free Pi, ad-supported inference. Please visit our advertisers to support us.");
     expect(lines[4]).toBe(""); // blank
-    expect(lines[5]).toContain("Usage is funded by ads and by training on your sessions. By using free-pi you consent.");
+    expect(lines[5]).toContain("Usage is funded by ads and training. By using free-pi you consent.");
     expect(lines[6]).toContain("See /tos and /privacy-policy.");
     expect(lines[7]).toBe(""); // blank
     // seven command lines

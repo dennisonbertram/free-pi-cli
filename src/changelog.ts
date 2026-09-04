@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.2.18",
+    highlights: [
+      "Clearer wording in the startup consent line.",
+    ],
+  },
+  {
     version: "0.2.17",
     highlights: [
       "/tos and /privacy-policy open the Terms and Privacy Policy in your browser.",

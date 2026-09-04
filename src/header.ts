@@ -35,7 +35,7 @@ const WELCOME_LINE =
 
 // Split into two lines rather than one 106-char line, so it fits the 100-column
 // truncation rule in headerLines without ever being cut off with an ellipsis.
-const CONSENT_LINE_1 = "Usage is funded by ads and by training on your sessions. By using free-pi you consent.";
+const CONSENT_LINE_1 = "Usage is funded by ads and training. By using free-pi you consent.";
 const CONSENT_LINE_2 = "See /tos and /privacy-policy.";
 
 const EXPANDED_HINT_LINE = "esc interrupt · ctrl+c clear / exit · / commands · ! bash";

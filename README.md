@@ -5,7 +5,7 @@ for the user because ads pay for inference. All model calls route through the
 free-pi proxy — you never handle a model API key.
 
 ```
-npx free-pi-cli
+npx --no-audit free-pi-cli
 ```
 
 First run shows a consent screen (free inference, ads pay for it, sessions
@@ -18,7 +18,7 @@ existing `~/.pi/agent` install.
 Closed the terminal? Just run the same command again — you stay signed in:
 
 ```
-npx free-pi-cli
+npx --no-audit free-pi-cli
 ```
 
 Prefer a shorter command? Install it once, globally, then call it by name:

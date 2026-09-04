@@ -5,6 +5,12 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.2.18] - 2026-09-04
+
+### Changed
+- The startup consent line reads "Usage is funded by ads and training." instead of naming sessions
+  directly.
+
 ## [0.2.17] - 2026-09-03
 
 ### Added

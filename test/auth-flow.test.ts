@@ -51,14 +51,58 @@ function startScriptedStub(responses: Scripted[]): {
   return { url: `http://localhost:${server.port}`, requests, stop: () => server.stop(true) };
 }
 
-/** Grabs a free port, then releases it so a test can bind/unbind it on cue. */
-function ephemeralPort(): number {
-  const probe = Bun.serve({ port: 0, fetch: () => new Response("x") });
-  // port is typed number | undefined, but a successfully bound listener
-  // always has one — bind failure would have thrown out of Bun.serve.
-  const port = probe.port!;
-  probe.stop(true);
-  return port;
+/**
+ * A raw TCP listener that stays bound for its entire lifetime and flips, on
+ * cue, between refusing connections and answering with a scripted JSON body.
+ * "Refuse" closes the socket before any HTTP bytes, so fetch rejects with a
+ * network-class error — the same failure pollForToken's catch handles for
+ * ECONNREFUSED. This replaces the previous grab-port/release/rebind dance
+ * (and the closed-port trick in the pacing tests), where another process
+ * could win the freed port during the test — the one flake candidate
+ * flagged in the #4 review. Here the port is owned start to finish.
+ */
+function startFlakyServer(): {
+  url: string;
+  refuse: () => void;
+  respond: (body: unknown) => void;
+  stop: () => void;
+} {
+  let mode: { kind: "refuse" } | { kind: "respond"; body: unknown } = { kind: "refuse" };
+  const answer = (socket: { write: (data: string) => number; end: () => void }) => {
+    if (mode.kind === "refuse") {
+      socket.end();
+      return;
+    }
+    const body = JSON.stringify(mode.body);
+    socket.write(
+      `HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\nconnection: close\r\n\r\n${body}`,
+    );
+    socket.end();
+  };
+  const listener = Bun.listen({
+    hostname: "127.0.0.1",
+    port: 0,
+    socket: {
+      // Refusals happen at open (before the request is even sent); real
+      // answers wait for the request bytes so the client is mid-read.
+      open(socket) {
+        if (mode.kind === "refuse") socket.end();
+      },
+      data(socket) {
+        answer(socket);
+      },
+    },
+  });
+  return {
+    url: `http://127.0.0.1:${listener.port}`,
+    refuse: () => {
+      mode = { kind: "refuse" };
+    },
+    respond: (body: unknown) => {
+      mode = { kind: "respond", body };
+    },
+    stop: () => listener.stop(true),
+  };
 }
 
 const DEVICE_BODY = {
@@ -196,66 +240,61 @@ describe("pollForToken — response branches", () => {
 
 describe("pollForToken — network failure pacing and counter reset", () => {
   test("network-failure sleeps are floored at 5s even when the poll interval is 0 (firstrun asserts the count; this asserts the durations)", async () => {
-    const closed = Bun.serve({ port: 0, fetch: () => new Response("x") });
-    const closedUrl = `http://localhost:${closed.port}`;
-    closed.stop(true);
-
+    const flaky = startFlakyServer();
     const slept: number[] = [];
-    await expect(
-      pollForToken(closedUrl, "sess-1", 0, async (ms) => {
-        slept.push(ms);
-      }),
-    ).rejects.toThrow(/network unreachable/);
-    expect(slept).toEqual([5_000, 5_000, 5_000, 5_000, 5_000]);
+    try {
+      await expect(
+        pollForToken(flaky.url, "sess-1", 0, async (ms) => {
+          slept.push(ms);
+        }),
+      ).rejects.toThrow(/network unreachable/);
+      expect(slept).toEqual([5_000, 5_000, 5_000, 5_000, 5_000]);
+    } finally {
+      flaky.stop();
+    }
   });
 
   test("an interval above the floor wins: interval 7 -> 7s between failed polls", async () => {
-    const closed = Bun.serve({ port: 0, fetch: () => new Response("x") });
-    const closedUrl = `http://localhost:${closed.port}`;
-    closed.stop(true);
-
+    const flaky = startFlakyServer();
     const slept: number[] = [];
-    await expect(
-      pollForToken(closedUrl, "sess-1", 7, async (ms) => {
-        slept.push(ms);
-      }),
-    ).rejects.toThrow(/network unreachable/);
-    expect(slept).toEqual([7_000, 7_000, 7_000, 7_000, 7_000]);
+    try {
+      await expect(
+        pollForToken(flaky.url, "sess-1", 7, async (ms) => {
+          slept.push(ms);
+        }),
+      ).rejects.toThrow(/network unreachable/);
+      expect(slept).toEqual([7_000, 7_000, 7_000, 7_000, 7_000]);
+    } finally {
+      flaky.stop();
+    }
   });
 
   test("the consecutive-failure counter RESETS on any successful response: 10 total failures never abort when broken by one good poll", async () => {
-    // The injected sleep doubles as a scheduling hook: the server for `port`
-    // is brought up and torn down between polls, on cue. Timeline
-    // (interval 0, all polls hit the same port):
-    //   polls 1-5   port closed -> network failures 1..5 (one below abort)
-    //   sleep #5    bind the port, scripted to answer "pending"
+    // The injected sleep doubles as a scheduling hook: the SAME always-bound
+    // server flips between refusing and answering, on cue. Timeline
+    // (interval 0, every poll hits the one listener):
+    //   polls 1-5   refuse -> network failures 1..5 (one below abort)
+    //   sleep #5    flip to answering "pending"
     //   poll 6      pending -> counter resets to 0
-    //   sleep #6    unbind the port again
+    //   sleep #6    flip back to refusing
     //   polls 7-11  network failures 1..5 again — WITHOUT the reset this
     //               run would have aborted at poll 7 (failure #6)
-    //   sleep #11   bind the port, scripted to answer with the token
+    //   sleep #11   flip to answering with the token
     //   poll 12     token issued
-    const port = ephemeralPort();
-    const url = `http://localhost:${port}`;
-    let live: ReturnType<typeof Bun.serve> | undefined;
+    const flaky = startFlakyServer();
     let sleeps = 0;
 
     try {
-      const token = await pollForToken(url, "sess-1", 0, async () => {
+      const token = await pollForToken(flaky.url, "sess-1", 0, async () => {
         sleeps++;
-        if (sleeps === 5) {
-          live = Bun.serve({ port, fetch: () => Response.json({ status: "pending" }) });
-        } else if (sleeps === 6) {
-          live?.stop(true);
-          live = undefined;
-        } else if (sleeps === 11) {
-          live = Bun.serve({ port, fetch: () => Response.json({ token: "jwt-after-reset" }) });
-        }
+        if (sleeps === 5) flaky.respond({ status: "pending" });
+        else if (sleeps === 6) flaky.refuse();
+        else if (sleeps === 11) flaky.respond({ token: "jwt-after-reset" });
       });
       expect(token).toBe("jwt-after-reset");
       expect(sleeps).toBe(11);
     } finally {
-      live?.stop(true);
+      flaky.stop();
     }
   });
 });

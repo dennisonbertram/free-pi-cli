@@ -29,8 +29,29 @@ free-pi-cli
 ```
 
 Note: `free-pi-cli` is the command — **not** `pi`. If you see the built-in
-agent suggest `pi --session …` on exit, use `npx free-pi-cli` instead (each
-run starts a fresh session).
+agent suggest `pi --session …` on exit, use the `free-pi-cli` form of the
+same thing: `npx free-pi-cli --session <id>` resumes that session (the id
+prints when you exit), and plain `npx free-pi-cli` starts a fresh one.
+
+## Commands
+
+```
+free-pi-cli                 start the coding agent
+free-pi-cli --session <id>  resume a previous session (the id prints when you exit)
+free-pi-cli logout          remove the stored sign-in token; the next run signs in again
+free-pi-cli --version       print the CLI version
+free-pi-cli --help          usage
+```
+
+`logout` is purely local: it deletes `~/.free-pi/agent/credentials.json` and
+never contacts the server — there is no revoke endpoint, so the signed-in
+token itself stays valid server-side until it expires. It also works offline.
+
+Inside a session, free-pi adds a few slash commands on top of pi's own:
+`/model` picks between models when the server offers more than one,
+`/whats-new` shows the changelog for the running version, `/update` triggers
+a self-update, and `/close-other-session` frees your account's session slot
+if another terminal holds it.
 
 ## Development
 

@@ -14,6 +14,9 @@ export const ERROR_CODES = [
   // #23: a human-suspended account (abuse_user_state.tier = 'suspended') —
   // distinct from the classifier's own restrictions, which stay `daily_cap`.
   "account_review",
+  // #347: a `restricted` account with no confirmed ad impression in the
+  // trailing abuse window — the S2 gate that actually stops a bypass.
+  "ads_required",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -52,6 +55,9 @@ export const ERROR_HTTP_STATUS = {
   // #23 R5: same status as consent_required — an access gate on account
   // state, not a rate limit.
   account_review: 403,
+  // #347: same status as account_review/consent_required — an access gate
+  // on account state, not a rate limit.
+  ads_required: 403,
 } satisfies Record<ErrorCode, number>;
 
 export function assertExhaustiveErrorCode(code: never): never {

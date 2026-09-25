@@ -52,6 +52,8 @@ export function mapErrorCode(code: ErrorCode): string {
       return "too many requests this hour on the free tier — wait for the Retry-After window";
     case "account_review":
       return "this account is under review — contact support";
+    case "ads_required":
+      return "ads aren't displaying for this account, so free completions are paused — run free-pi through `npx free-pi-cli`, then retry";
     default:
       return assertExhaustiveErrorCode(code);
   }

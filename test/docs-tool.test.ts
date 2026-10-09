@@ -90,7 +90,7 @@ describe("FREE_PI_DOCS content (R7, R9)", () => {
     for (const heading of [
       "# free-pi",
       "## What free-pi is",
-      "## The promise",
+      "## Ads and your data",
       "## The free allowance",
       "## Credits",
       "## Commands",

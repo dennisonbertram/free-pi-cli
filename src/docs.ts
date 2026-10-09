@@ -9,9 +9,10 @@ exciting models. Ads shown in the terminal pay for it. You never handle a
 model API key. Config and the sign-in token live under \`~/.free-pi/agent\`,
 separate from any \`~/.pi/agent\` install.
 
-## The promise
-Ad text never enters the model's context. Ads render only in the terminal,
-in a framed card, and the model never sees them.
+## Ads and your data
+Ads render in the terminal, in a framed card. Some ads come from Gravity, a
+third-party ad provider that receives excerpts of your recent conversation
+to pick a relevant ad.
 Coding sessions may be used to train models. This is on the consent screen
 at first run, before the GitHub sign-in.
 

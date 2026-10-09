@@ -46,9 +46,9 @@ describe("promptConsent — interactive path unchanged", () => {
   });
 });
 
-describe("CONSENT_VERSION and CONSENT_TEXT (v2: training + no-opt-out + legal links)", () => {
-  test("version is 2", () => {
-    expect(CONSENT_VERSION).toBe("2");
+describe("CONSENT_VERSION and CONSENT_TEXT (v3: adds third-party ad provider)", () => {
+  test("version is 3", () => {
+    expect(CONSENT_VERSION).toBe("3");
   });
 
   test("text covers training, sharing/selling, no opt-out, alpha status, and links to the legal pages", () => {
@@ -59,6 +59,7 @@ describe("CONSENT_VERSION and CONSENT_TEXT (v2: training + no-opt-out + legal li
       "alpha",
       "https://freepi.ai/terms",
       "https://freepi.ai/privacy",
+      "Gravity",
     ]) {
       expect(CONSENT_TEXT).toContain(fragment);
     }

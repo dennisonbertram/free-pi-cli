@@ -2,8 +2,9 @@ export const CONSENT_TEXT = `
 free-pi — before you start
 
   * Inference is free. Ads pay for it, and so does training.
-  * Ad cards render in the terminal UI. Ad content never enters the model's
-    context.
+  * Ad cards render in the terminal UI. Some ads come from a third-party ad
+    provider (Gravity), which receives excerpts of your recent conversation
+    to pick a relevant ad.
   * Your coding sessions (prompts, code, files, and model responses) are saved
     as traces and used to train models. We may share or sell that data to
     third parties. Once you accept, there is no opt-out, except where the law
@@ -23,7 +24,7 @@ and the Privacy Policy (https://freepi.ai/privacy).
 Decline and nothing is sent to the free-pi server.
 `.trim();
 
-export const CONSENT_VERSION = "2";
+export const CONSENT_VERSION = "3";
 
 /**
  * Shown instead of the consent screen when stdin is not a TTY. Consent is a

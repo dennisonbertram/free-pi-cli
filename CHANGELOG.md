@@ -5,6 +5,18 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.3.0] - 2026-10-13
+
+### Changed
+- Upgraded the underlying pi agent engine to 1.2.0; pi's install telemetry is disabled.
+
+### Added
+- `/bug` sends bug reports to the free-pi server.
+
+### Fixed
+- `free-pi-cli --session <id>` resumes a session. It was rejected as an unknown argument, and the
+  printed resume command included a `--session-dir` flag the CLI does not accept.
+
 ## [0.2.18] - 2026-09-04
 
 ### Changed

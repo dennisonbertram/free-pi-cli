@@ -661,7 +661,9 @@ describe("provider registration", () => {
     expect(config.apiKey).toBe("jwt-abc");
     expect(config.api).toBe("openai-completions");
     expect(config.models?.[0]?.id).toBe(MODEL_ID);
-    expect(config.models?.[0]?.contextWindow).toBe(1_048_576);
+    const model = config.models?.[0];
+    // ProviderModelConfig is a union; only chat models carry contextWindow.
+    expect(model && "contextWindow" in model ? model.contextWindow : undefined).toBe(1_048_576);
     expect(config.models?.[0]?.cost).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
   });
 

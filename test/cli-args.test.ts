@@ -26,11 +26,23 @@ describe("parseCliArgs — local command dispatch", () => {
   test("trailing args after a valid command -> unknown, reporting the extra arg", () => {
     expect(parseCliArgs(["logout", "--force"])).toEqual({ kind: "unknown", arg: "--force" });
   });
+
+  test("--session <id> -> run (value validation stays in run.ts)", () => {
+    expect(parseCliArgs(["--session", "abc"])).toEqual({ kind: "run" });
+  });
+
+  test("bare --session -> run so run.ts prints its own missing-value message", () => {
+    expect(parseCliArgs(["--session"])).toEqual({ kind: "run" });
+  });
+
+  test("--session <id> with extra trailing args -> unknown", () => {
+    expect(parseCliArgs(["--session", "a", "b"])).toEqual({ kind: "unknown", arg: "b" });
+  });
 });
 
 describe("help/version text", () => {
   test("help documents every command and the env overrides", () => {
-    for (const needle of ["logout", "--version", "--help", "FREEPI_BASE_URL", "FREEPI_NO_AUTO_UPDATE"]) {
+    for (const needle of ["logout", "--session", "--version", "--help", "FREEPI_BASE_URL", "FREEPI_NO_AUTO_UPDATE"]) {
       expect(HELP_TEXT).toContain(needle);
     }
   });

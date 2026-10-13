@@ -8,11 +8,21 @@ describe("rewriteResumeLine", () => {
     );
   });
 
-  test("preserves pi's own flags, including a non-default --session-dir", () => {
-    const line = "To resume this session: pi --session-dir '/tmp/my sessions' --session abc-123\n";
-    expect(rewriteResumeLine(line)).toBe(
-      "To resume this session: npx free-pi-cli --session-dir '/tmp/my sessions' --session abc-123\n",
-    );
+  test("drops a plain --session-dir (free-pi derives it from the cwd and rejects the flag)", () => {
+    const line = "To resume this session: pi --session-dir /home/u/.free-pi/agent/sessions/--proj-- --session abc-123\n";
+    expect(rewriteResumeLine(line)).toBe("To resume this session: npx free-pi-cli --session abc-123\n");
+  });
+
+  test("drops a quoted --session-dir, including embedded quotes", () => {
+    const spaced = "To resume this session: pi --session-dir '/tmp/my sessions' --session abc-123\n";
+    expect(rewriteResumeLine(spaced)).toBe("To resume this session: npx free-pi-cli --session abc-123\n");
+    const quoted = "To resume this session: pi --session-dir '/tmp/it'\\''s here' --session abc-123\n";
+    expect(rewriteResumeLine(quoted)).toBe("To resume this session: npx free-pi-cli --session abc-123\n");
+  });
+
+  test("drops --session-dir behind pi's dim ANSI label", () => {
+    const styled = "\u001b[2mTo resume this session:\u001b[22m pi --session-dir '/a b' --session abc\n";
+    expect(rewriteResumeLine(styled)).toBe("\u001b[2mTo resume this session:\u001b[22m npx free-pi-cli --session abc\n");
   });
 
   test("rewrites through the dim ANSI styling pi wraps the label in", () => {

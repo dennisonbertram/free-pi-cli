@@ -5,6 +5,7 @@
 // usage-tool, which stays read-only.
 import type { ExtensionAPI, InlineExtension } from "@earendil-works/pi-coding-agent";
 import { SessionResetResponseSchema } from "@freepi/shared";
+import { registerBugAutocomplete } from "./bug-report";
 import { CHANGELOG_HIGHLIGHTS } from "./changelog";
 import { openBrowser } from "./browser";
 import { BUY_NOT_AVAILABLE_TEXT, buyPageText, resolveBuyPage } from "./buy-tool";
@@ -186,6 +187,8 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
   return {
     name: "free-pi-commands",
     factory(pi: ExtensionAPI) {
+      // 0.3.0: keep /bug listed with a free-pi description (the handler itself is installed in pi-launch.ts).
+      registerBugAutocomplete(pi);
       pi.registerCommand("close-other-session", {
         description: "Clear your other running free-pi session (use if a previous one is stuck).",
         handler: (_args, ctx) => closeOtherSession(opts, ctx),

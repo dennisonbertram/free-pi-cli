@@ -41,6 +41,15 @@ function baseOpts(baseUrl: string): LaunchOptions {
 }
 
 describe("closed extension list (#28 R20, SB1)", () => {
+  test("pi's install telemetry (pi.dev/api/report-install) is disabled", () => {
+    const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
+    expect(opts.settingsManager.getEnableInstallTelemetry()).toBe(false);
+    expect(process.env.PI_TELEMETRY).toBe("0");
+    // pi 1.2.0 default changes we pin back to 0.84 behavior.
+    expect(opts.settingsManager.getTuiMode()).toBe("regular");
+    expect(opts.settingsManager.getThemeSetting()).toBe("light/dark");
+  });
+
   test("buildRuntimeOptions registers exactly the nine known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
     // #226: the closed set deliberately grew to six with free-pi-buy-tool;

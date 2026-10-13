@@ -197,3 +197,16 @@ export const SessionResetResponseSchema = z.object({
   released: z.boolean(),
 });
 export type SessionResetResponse = z.infer<typeof SessionResetResponseSchema>;
+
+// ---- POST /bug-reports (0.3.0: /bug) ----
+
+export const BUG_REPORTS_PER_DAY = 20;
+export const BugReportRequestSchema = z.object({
+  description: z.string().trim().min(1).max(4000),
+  session_id: z.string().max(128).optional(),
+  cli_version: z.string().max(32).optional(),
+  model: z.string().max(128).optional(),
+});
+export type BugReportRequest = z.infer<typeof BugReportRequestSchema>;
+export const BugReportResponseSchema = z.object({ id: z.string() });
+export type BugReportResponse = z.infer<typeof BugReportResponseSchema>;

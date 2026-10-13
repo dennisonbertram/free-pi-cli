@@ -4,8 +4,9 @@
 // Investigated mechanism: pi exposes provider HTTP responses to extensions
 // only via the `after_provider_response` event, which carries `status`
 // (number) and `headers` (Record<string,string>) — never the response body
-// (confirmed against @earendil-works/pi-coding-agent 0.84.2's own
-// docs/extensions.md and its examples/extensions/provider-payload.ts, which
+// (confirmed against @earendil-works/pi-coding-agent 1.2.0's own
+// dist/core/extensions/types.d.ts (AfterProviderResponseEvent) and its
+// examples/extensions/provider-payload.ts, which
 // logs exactly `[${event.status}] ${JSON.stringify(event.headers)}` and
 // nothing else). The proxy's error contract puts the distinguishing `code`
 // field in the JSON body (`{code, message}`), and two codes — daily_cap and

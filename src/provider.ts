@@ -2,18 +2,19 @@
 // https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md
 // Types imported (type-only, erased at runtime — see note below) from the
 // published package's real ProviderConfig/ProviderModelConfig
-// (@earendil-works/pi-coding-agent@0.84.2, dist/core/extensions/types.d.ts).
+// (@earendil-works/pi-coding-agent@1.2.0, dist/core/extensions/types.d.ts).
 import type { ProviderConfig } from "@earendil-works/pi-coding-agent";
 import { CLI_VERSION } from "./version";
 
 export const PROVIDER_NAME = "free-pi";
 export const MODEL_ID = "deepseek/deepseek-v4-flash";
 
-// Built-in tool names as of pi-coding-agent 0.84.2 (usage.md: "Built-in tools:
-// read, bash, edit, write, grep, find, ls"). Pi ships with no subagents, no
-// background bash, and no MCP by default (usage.md, "Design Principles") — the
-// only way any of those would exist is if we loaded a pi-package or extension
-// that adds them, which free-pi-cli deliberately never does (see pi-launch.ts).
+// Built-in tool names we enable (pi-coding-agent 1.2.0, docs/settings.md lists
+// read, bash, powershell, edit, write, grep, find, ls; codemode and tool_search
+// are opt-in via defaultTools). Pi 1.x ships mcp/codemode/tool_search
+// extensions, but they only load through pi-packages or defaultTools, which
+// free-pi-cli deliberately never configures (see pi-launch.ts and
+// no-subagents.test.ts).
 export const SAFE_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"] as const;
 
 /**

@@ -22,13 +22,16 @@ const RESUME_LABEL = "To resume this session:";
  * `pi` command word — bounded by whitespace so a later "pi" in prose is never
  * touched.
  */
-const RESUME_COMMAND_RE = /(To resume this session:(?:\u001b\[[0-9;]*m|\s)*)pi(?=\s)/g;
+const RESUME_COMMAND_RE = /(To resume this session:(?:\u001b\[[0-9;]*m|\s)*)pi(?=\s)( --session-dir (?:'(?:[^']|'\\'')*'|\S+))?/g;
 
 /**
  * Rewrites pi's `pi --session <id>` resume command into free-pi-cli's
- * equivalent. Only the command word is replaced; pi's own flags (including
- * `--session-dir <path>` when a non-default session dir is in play) are
- * preserved exactly, so the printed command stays correct.
+ * equivalent. The command word is replaced and pi's `--session-dir <path>`
+ * argument is removed: free-pi-cli rejects that flag and always derives the
+ * session dir from the cwd, which is the dir pi printed. pi quotes the path
+ * with single quotes (embedded `'` as `'\''`) unless it is only
+ * [a-zA-Z0-9_\-./~:@] (quoteIfNeeded in pi-coding-agent's
+ * dist/modes/interactive/interactive-mode.js).
  *
  * Returns the chunk unchanged when it carries no resume line, which is the
  * overwhelmingly common case (every other write passes through untouched).

@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.3.0",
+    highlights: [
+      "Upgraded the underlying pi agent engine to 1.2.0.",
+      "/bug now sends reports to the free-pi team.",
+      "`npx free-pi-cli --session <id>` resumes a session again.",
+    ],
+  },
+  {
     version: "0.2.19",
     highlights: [
       "More models to pick from: Solar Pro 4, GLM 5.3 Flash, and a Groq speed lane. /model to switch.",

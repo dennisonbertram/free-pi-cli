@@ -17,6 +17,7 @@ import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
 import { createDocsToolExtension, DOCS_TOOL_NAME } from "./docs-tool";
 import { createErrorNoticeExtension } from "./error-notice";
 import { createToolGuardExtension } from "./tool-guard";
+import { installBugHandler } from "./bug-report";
 import { createFreePiCommandsExtension } from "./commands";
 import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
@@ -184,6 +185,13 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     // KTD1: hides pi's own startup header/skills/extensions dump so the
     // free-pi-header extension's setHeader is the only header shown (R5).
     quietStartup: true,
+    // pi 1.2.0 defaults to fullscreen; keep 0.84's inline rendering with normal scrollback.
+    tuiMode: "regular",
+    // pi 1.2.0 falls back to a "system" palette; keep 0.84's light/dark pick from the terminal background.
+    theme: "light/dark",
+    // Pi's own install ping to pi.dev/api/report-install (interactive-mode.js)
+    // is off for free-pi users; PI_TELEMETRY=0 below enforces it too.
+    enableInstallTelemetry: false,
   });
 
   return {
@@ -242,6 +250,9 @@ export async function createSessionManager(
  */
 process.env.PI_SKIP_VERSION_CHECK = "1";
 
+// Pi reads PI_TELEMETRY ahead of the enableInstallTelemetry setting (core/telemetry.js).
+process.env.PI_TELEMETRY = "0";
+
 // Same brand-leak problem at the other end of the session: pi's exit path
 // prints "To resume this session: pi --session <id>" straight to stdout and
 // then exits the process. See resume-line.ts.
@@ -294,6 +305,7 @@ export async function launchPi(opts: LaunchOptions): Promise<string> {
     initialImages: [],
     initialMessages: [],
   });
+  installBugHandler(mode, { baseUrl: opts.baseUrl, getToken: () => opts.jwt });
 
   await mode.run();
   return sm.getSessionId();

@@ -1,9 +1,10 @@
-// Pure argv parsing for the three local commands (help / version / logout),
-// extracted from index.ts (untestable: main() runs on import) as a test seam.
+// Pure argv parsing for the local commands (help / version / logout) and the
+// `--session <id>` resume flag, extracted from index.ts (untestable: main() runs on import) as a test seam.
 //
 // Privacy note, same invariant as run()'s decline path: none of the commands
 // parsed here ever contact the free-pi server — they print or touch local
-// files and exit. Only { kind: "run" } proceeds into the consent-gated flow.
+// files and exit. --session is not one of them: it maps to { kind: "run" } (the id is validated
+// in run.ts). Only { kind: "run" } proceeds into the consent-gated flow.
 import { CLI_VERSION } from "./version";
 
 export type CliCommand =
@@ -17,10 +18,11 @@ export const HELP_TEXT = `
 free-pi — free AI coding in your terminal; ads pay for the inference.
 
 Usage:
-  free-pi-cli            start the coding agent (first run: consent + GitHub sign-in)
-  free-pi-cli logout     remove the stored sign-in token; the next run signs in again
-  free-pi-cli --version  print the CLI version
-  free-pi-cli --help     show this help
+  free-pi-cli                 start the coding agent (first run: consent + GitHub sign-in)
+  free-pi-cli --session <id>  resume a previous session
+  free-pi-cli logout          remove the stored sign-in token; the next run signs in again
+  free-pi-cli --version       print the CLI version
+  free-pi-cli --help          show this help
 
 Environment:
   FREEPI_BASE_URL        override the backend base URL (default https://api.freepi.ai)
@@ -41,6 +43,11 @@ export function versionLine(): string {
 export function parseCliArgs(argv: readonly string[]): CliCommand {
   const [first, ...rest] = argv;
   if (first === undefined) return { kind: "run" };
+
+  // run.ts reads and validates the value itself (incl. the missing-value message).
+  if (first === "--session") {
+    return rest.length > 1 ? { kind: "unknown", arg: rest[1] as string } : { kind: "run" };
+  }
 
   let kind: "help" | "version" | "logout";
   if (first === "--help" || first === "-h" || first === "help") kind = "help";

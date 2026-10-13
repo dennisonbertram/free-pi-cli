@@ -17,5 +17,5 @@
       "@freepi/pi-ads": ["./src/vendor/pi-ads/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

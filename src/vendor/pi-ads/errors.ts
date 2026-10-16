@@ -32,7 +32,9 @@ import { assertExhaustiveErrorCode, type ErrorCode } from "@freepi/shared";
 export function mapErrorCode(code: ErrorCode): string {
   switch (code) {
     case "daily_cap":
-      return "out of free tokens today, resets at 00:00 UTC";
+      return "out of free credits today — refills at UTC midnight";
+    case "queue_wait":
+      return "free-pi is near its daily budget — wait and retry";
     case "rolling_cap":
       return "over the rolling spend cap on the free tier — wait for the Retry-After window";
     case "concurrent":

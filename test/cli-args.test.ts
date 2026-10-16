@@ -15,6 +15,20 @@ describe("parseCliArgs — local command dispatch", () => {
     expect(parseCliArgs([arg])).toEqual({ kind: "version" });
   });
 
+  test("mcp passes every following argument through untouched", () => {
+    expect(parseCliArgs(["mcp"])).toEqual({ kind: "mcp", args: [] });
+    expect(parseCliArgs(["mcp", "add", "x", "--", "cmd", "a", "b"])).toEqual({
+      kind: "mcp",
+      args: ["add", "x", "--", "cmd", "a", "b"],
+    });
+    expect(parseCliArgs(["mcp", "list", "--json"])).toEqual({ kind: "mcp", args: ["list", "--json"] });
+    expect(parseCliArgs(["mcp", "--help"])).toEqual({ kind: "mcp", args: ["--help"] });
+  });
+
+  test("HELP_TEXT lists the mcp command", () => {
+    expect(HELP_TEXT).toContain("free-pi-cli mcp");
+  });
+
   test("logout -> logout", () => {
     expect(parseCliArgs(["logout"])).toEqual({ kind: "logout" });
   });

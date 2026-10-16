@@ -34,12 +34,20 @@ async function reportToolGuardTrigger(opts: CreateToolGuardOptions, toolName: st
   }
 }
 
+// MCP tools come from servers the user configured: `mcp__<server>__<tool>`,
+// plus the three resource tools pi adds when a server has resources.
+const MCP_RESOURCE_TOOLS = ["list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource"];
+
+function isAllowed(opts: CreateToolGuardOptions, name: string): boolean {
+  return opts.allowedTools.includes(name) || name.startsWith("mcp__") || MCP_RESOURCE_TOOLS.includes(name);
+}
+
 export function createToolGuardExtension(opts: CreateToolGuardOptions): InlineExtension {
   return {
     name: "free-pi-tool-guard",
     factory(pi: ExtensionAPI) {
       pi.on("tool_call", (event): ToolCallEventResult | undefined => {
-        if (opts.allowedTools.includes(event.toolName)) return undefined;
+        if (isAllowed(opts, event.toolName)) return undefined;
         void reportToolGuardTrigger(opts, event.toolName);
         // block (not terminate): refuse the single non-allowlisted call but
         // keep the session alive. The SDK `tools` allowlist should stop any

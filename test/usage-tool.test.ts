@@ -69,11 +69,16 @@ const STATS: MeStatsResponse = {
   user_id: "u1",
   handle: "octocat",
   tier: "young",
-  cap_usd_today: 2,
-  spent_usd_today: 0.5,
-  remaining_usd_today: 1.5,
+  cap_usd_today: 1.125,
+  spent_usd_today: 0.195,
+  remaining_usd_today: 0.93,
   credit_usd: 0,
   credit_credits: 0,
+  allowance_credits: 15_000,
+  remaining_credits_today: 12_400,
+  refill_at: "2026-10-15T00:00:00.000Z",
+  lane: "standard",
+  bonus_credits: 0,
   request_count_today: 3,
   prompt_tokens_today: 120,
   completion_tokens_today: 60,
@@ -93,27 +98,29 @@ describe("createUsageToolExtension", () => {
     const tool = registerAndGetTool(fetchImpl);
 
     const result = await tool.execute("call-1", {}, undefined, undefined, {});
-    expect(result.content[0]!.text).toContain("25% of your free daily allowance used"); // 0.5 of cap 2
-    expect(result.content[0]!.text).not.toContain("$0.5"); // never a free-usage dollar figure
+    expect(result.content[0]!.text).toContain("12,400 / 15,000 credits left today");
+    expect(result.content[0]!.text).not.toContain("$"); // never a free-usage dollar figure
     expect(result.content[0]!.text).toContain("young"); // tier
     expect(result.details).toEqual(STATS);
   });
 
-  test("free usage is shown as a percentage only — no free-usage dollar figure anywhere; credit stays in dollars", () => {
-    // STATS: spent 0.5 of cap 2 → 25%.
+  test("free usage is shown as credits left + refill — never a dollar figure", () => {
     expect(formatStats({ ...STATS, credit_credits: 50000 }).split("\n")).toEqual([
       "tier: young",
-      "today: 25% of your free daily allowance used",
+      "12,400 / 15,000 credits left today · refills 8:00 PM ET",
       "credit: 50,000 credits remaining",
       "today tokens: 120 prompt / 60 completion",
       "lifetime: 900 prompt / 400 completion tokens",
+      "buy more credits: /buy-credits",
     ]);
-    const { credit_credits: _omit, ...oldServer } = STATS;
+    expect(formatStats({ ...STATS, lane: "fallback" })).toContain("Slow lane: cheapest model until refill");
+    const { credit_credits: _omit, allowance_credits: _a, remaining_credits_today: _r, refill_at: _f, lane: _l, bonus_credits: _b, ...oldServer } = STATS;
     const without = formatStats(oldServer as MeStatsResponse);
-    expect(without).not.toContain("credit");
-    // Neither the cap, today's spend/remaining, nor lifetime spend appear as dollars.
+    expect(without).not.toContain("credits remaining");
+    expect(without.split("\n").at(-1)).toBe("buy more credits: /buy-credits");
+    expect(without).toContain("17% of your free daily allowance used"); // 0.195 of 1.125
     for (const s of [without, formatStats(STATS)]) {
-      expect(s).not.toMatch(/\$2\.00|\$0\.5|\$1\.5|\$4\.2/);
+      expect(s).not.toMatch(/\$/);
     }
     expect(formatStats(STATS)).toContain("credit: 0 credits remaining");
   });

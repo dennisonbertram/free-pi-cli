@@ -19,7 +19,7 @@ export interface TuiLike {
 // R2: fixed command list, in order, with descriptions. Names padded so every
 // description starts at the same column.
 const COMMANDS: ReadonlyArray<{ name: string; description: string }> = [
-  { name: "/usage", description: "spend and remaining budget today" },
+  { name: "/usage", description: "credits left today and refill time" },
   { name: "/support", description: "visit today's advertiser" },
   { name: "/tos", description: "terms of service" },
   { name: "/privacy-policy", description: "privacy policy" },

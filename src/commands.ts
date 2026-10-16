@@ -202,7 +202,7 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
         handler: (_args, ctx) => runUpdate(ctx),
       });
       pi.registerCommand("usage", {
-        description: "Show how much of today's free allowance you have used, and your purchased credit.",
+        description: "Show credits left today, refill time, and purchased credit.",
         handler: (_args, ctx) => showUsage(opts, ctx),
       });
       pi.registerCommand("buy-credits", {

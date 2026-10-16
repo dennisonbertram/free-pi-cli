@@ -63,6 +63,7 @@ function createFakePi(): {
 function fakeCtx(): { ctx: ExtensionContext; widgetCalls: unknown[] } {
   const widgetCalls: unknown[] = [];
   const ui = {
+    setStatus: () => {},
     setWidget: (id: string, content: unknown, options?: unknown) => {
       widgetCalls.push({ id, content, options });
     },

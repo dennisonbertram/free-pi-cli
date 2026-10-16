@@ -6,9 +6,22 @@ import type { AdsDeps } from "./api";
 import { fetchMe } from "./api";
 import { usdToCredits } from "@freepi/shared";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
-import { renderErrorLine, sanitizeText, type ThemeLike } from "./style";
+import { osc8, renderErrorLine, renderWarningLine, sanitizeText, type ThemeLike } from "./style";
 
 export const METER_WIDGET_ID = "freepi-meter";
+// Routine credit balance lives in pi's footer status bar; the widget is kept
+// for notices and errors only.
+export const METER_STATUS_KEY = "freepi-credits";
+
+/** Standard-lane balance at or below this share of the daily allowance triggers the low-credit warning. */
+export const LOW_CREDIT_FRACTION = 0.1;
+const BUY_LINK_TEXT = "freepi.ai/buy";
+
+// buy_url carries a token, so it is only the OSC 8 target; the visible text is fixed.
+function buyMore(buyUrl: unknown): string {
+  const url = typeof buyUrl === "string" ? sanitizeText(buyUrl) : "";
+  return url !== "" ? ` · Buy more: ${osc8(BUY_LINK_TEXT, url)}` : "";
+}
 
 // 2026-09-01: purchase confirmation. The meter already polls /me every turn;
 // when credit_usd rises between two polls in this process, the widget shows a
@@ -33,6 +46,9 @@ export function creditAddedMessage(addedUsd: number): string {
 
 export async function renderMeter(deps: AdsDeps, ctx: ExtensionContext): Promise<void> {
   const me = await fetchMe(deps);
+  // Any widget state below (notice, confirmation, error, hidden) clears the
+  // footer balance so the two never disagree; the credits branches set it.
+  ctx.ui.setStatus(METER_STATUS_KEY, undefined);
   if (!me) {
     ctx.ui.setWidget(METER_WIDGET_ID, undefined);
     return;
@@ -59,11 +75,37 @@ export async function renderMeter(deps: AdsDeps, ctx: ExtensionContext): Promise
     ctx.ui.setWidget(METER_WIDGET_ID, [renderErrorLine(notice, theme)]);
     return;
   }
+  // Phase 0: credits, never dollars, for free usage. Server-owned fields
+  // (optional so an older /me still falls through to the pre-Phase-0 hide).
+  if (me.lane === "fallback") {
+    ctx.ui.setStatus(METER_STATUS_KEY, theme.fg("muted", "0 credits · slow lane"));
+    ctx.ui.setWidget(METER_WIDGET_ID, [
+      renderWarningLine(`Out of free credits — slow lane until refill${buyMore(me.buy_url)}`, theme),
+    ]);
+    return;
+  }
+  if (
+    typeof me.remaining_credits_today === "number" &&
+    typeof me.allowance_credits === "number" &&
+    typeof me.refill_at === "string"
+  ) {
+    const refill = new Date(me.refill_at);
+    if (!Number.isNaN(refill.getTime()) && me.lane !== "wait") {
+      const left = me.remaining_credits_today;
+      // Purchased credits ride along in the footer; the low warning below stays on free credits.
+      const bought = typeof me.bonus_credits === "number" && me.bonus_credits > 0 ? ` + ${me.bonus_credits.toLocaleString("en-US")}` : "";
+      ctx.ui.setStatus(METER_STATUS_KEY, theme.fg("muted", `${left.toLocaleString("en-US")}${bought} credits`));
+      const low = left > 0 && left <= me.allowance_credits * LOW_CREDIT_FRACTION;
+      ctx.ui.setWidget(
+        METER_WIDGET_ID,
+        low ? [renderWarningLine(`Low on credits: ${left.toLocaleString("en-US")} left today${buyMore(me.buy_url)}`, theme)] : undefined,
+      );
+      return;
+    }
+  }
   const errorCode = inferErrorFromRemainingBudget(me.remaining_usd_today);
-  // Founder decision (2026-08-17): do NOT show the normal "free budget today:
-  // $X remaining" line — the dollar amount reads as "cheap". Only surface a
-  // message when the daily cap is actually hit (that message carries no dollar
-  // figure). Revisit later with a clearer usage indicator.
+  // Founder decision (2026-08-17): never show free-usage dollars. An old
+  // server without credit fields still hides the meter until the cap is hit.
   if (errorCode === undefined) {
     ctx.ui.setWidget(METER_WIDGET_ID, undefined);
     return;

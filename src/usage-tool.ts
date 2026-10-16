@@ -16,7 +16,7 @@
 // in this file.
 import type { ExtensionAPI, InlineExtension } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import type { MeStatsResponse } from "@freepi/shared";
+import { formatCreditsLeftLine, SLOW_LANE_METER_LINE, type MeStatsResponse } from "@freepi/shared";
 
 export interface CreateUsageToolOptions {
   baseUrl: string;
@@ -43,20 +43,31 @@ export function percentUsed(spentUsd: number, capUsd: number): number {
 export function formatStats(stats: MeStatsResponse): string {
   // Founder decision (2026-09-01, same reasoning as the meter's 2026-08-17
   // decision): free usage is never shown as a dollar amount — not the cap, not
-  // today's spend, not lifetime spend — only as a percentage of today's
-  // allowance.
+  // today's spend, not lifetime spend.
+  // Phase 0: prefer the server-owned credit remaining / refill line. An older
+  // server without those fields still gets the percentage.
   // #credits: purchased balance is shown as whole "credits" (server-owned peg),
   // never a dollar figure, so the $paid -> $granted margin is never visible.
   // Guarded at runtime: an older server omits credit_credits.
   const credits = (stats as Partial<MeStatsResponse>).credit_credits;
+  const remaining = (stats as Partial<MeStatsResponse>).remaining_credits_today;
+  const allowance = (stats as Partial<MeStatsResponse>).allowance_credits;
+  const refillAt = (stats as Partial<MeStatsResponse>).refill_at;
+  const lane = (stats as Partial<MeStatsResponse>).lane;
+  const todayLine =
+    typeof remaining === "number" && typeof allowance === "number" && typeof refillAt === "string"
+      ? formatCreditsLeftLine(remaining, allowance, new Date(refillAt))
+      : `today: ${percentUsed(stats.spent_usd_today, stats.cap_usd_today)}% of your free daily allowance used`;
   // Request counts are omitted on purpose (#credits): a count next to the
   // percentage would let a user back into per-request cost. Tokens stay.
   return [
     `tier: ${stats.tier}`,
-    `today: ${percentUsed(stats.spent_usd_today, stats.cap_usd_today)}% of your free daily allowance used`,
+    todayLine,
+    ...(lane === "fallback" ? [SLOW_LANE_METER_LINE] : []),
     ...(typeof credits === "number" ? [`credit: ${credits.toLocaleString("en-US")} credits remaining`] : []),
     `today tokens: ${stats.prompt_tokens_today} prompt / ${stats.completion_tokens_today} completion`,
     `lifetime: ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
+    "buy more credits: /buy-credits",
   ].join("\n");
 }
 

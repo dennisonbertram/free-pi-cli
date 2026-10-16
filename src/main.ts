@@ -5,6 +5,7 @@ import { readAutoUpdate } from "./cli-config";
 import { clearJwt, loadJwt } from "./credentials";
 import { resolveBaseUrl } from "./env";
 import { runLogout } from "./logout";
+import { runFreePiMcp } from "./mcp-command";
 import { getConfigPath, getCredentialsPath, getFreePiAgentDir } from "./paths";
 import { launchPi } from "./pi-launch";
 import { promptConsentInteractive } from "./prompt";
@@ -47,6 +48,16 @@ async function main(): Promise<void> {
       log: (message) => console.log(message),
     });
     process.exit(logoutCode);
+  }
+
+  if (command.kind === "mcp") {
+    const mcpCode = await runFreePiMcp(command.args, {
+      cwd: process.cwd(),
+      agentDir: getFreePiAgentDir(),
+      log: (line) => console.log(line),
+      error: (line) => console.error(line),
+    });
+    process.exit(mcpCode);
   }
 
   const agentDir = getFreePiAgentDir();

@@ -11,9 +11,9 @@ export const MODEL_ID = "deepseek/deepseek-v4-flash";
 
 // Built-in tool names we enable (pi-coding-agent 1.2.0, docs/settings.md lists
 // read, bash, powershell, edit, write, grep, find, ls; codemode and tool_search
-// are opt-in via defaultTools). Pi 1.x ships mcp/codemode/tool_search
-// extensions, but they only load through pi-packages or defaultTools, which
-// free-pi-cli deliberately never configures (see pi-launch.ts and
+// are opt-in via defaultTools). Since 2026-10-13 pi-launch.ts loads pi's
+// mcp/codemode/tool_search extensions for user-added MCP servers; those are
+// not part of SAFE_TOOLS (see ALLOWED_TOOL_NAMES in pi-launch.ts and
 // no-subagents.test.ts).
 export const SAFE_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"] as const;
 

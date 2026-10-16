@@ -2,6 +2,9 @@ import {
   createAgentSessionFromServices,
   createAgentSessionRuntime,
   createAgentSessionServices,
+  createCodemodeExtension,
+  createMcpExtension,
+  createToolSearchExtension,
   InteractiveMode,
   SessionManager,
   SettingsManager,
@@ -10,18 +13,25 @@ import {
   type InlineExtension,
 } from "@earendil-works/pi-coding-agent";
 import { createAdsExtension } from "@freepi/pi-ads";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
 import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
 import { createDocsToolExtension, DOCS_TOOL_NAME } from "./docs-tool";
+import { createTodoToolExtension, TODO_TOOL_NAME } from "./todo-tool";
+import { createToolAliasesExtension } from "./tool-aliases";
 import { createErrorNoticeExtension } from "./error-notice";
+import { AGENT_RULES } from "./agent-rules";
 import { createToolGuardExtension } from "./tool-guard";
 import { installBugHandler } from "./bug-report";
+import { installFooterRightAlign } from "./footer-align";
 import { createFreePiCommandsExtension } from "./commands";
 import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
+import { createFusionExtension } from "./fusion";
 import { patchResumeLine } from "./resume-line";
+import { decideProjectTrustInteractive, projectTrustForCwd } from "./project-trust";
 
 export interface LaunchOptions {
   baseUrl: string;
@@ -37,6 +47,13 @@ export interface LaunchOptions {
    * self-update fell back to notifying. Renders the header's update banner —
    * free-pi's replacement for pi's own (suppressed) `pi update` banner. */
   updateLatest?: string;
+  /**
+   * Whether the current folder's project resources (.pi/mcp.json, .pi/extensions,
+   * .pi/settings.json, .agents/skills) may load. launchPi() decides this before
+   * the TUI starts (project-trust.ts). Absent means untrusted: pi's SettingsManager
+   * would otherwise default to trusted.
+   */
+  projectTrusted?: boolean;
 }
 
 /** The models to register + scope the picker to: the server catalog when it
@@ -48,8 +65,12 @@ function catalogModelsFor(opts: LaunchOptions): CatalogModel[] {
 }
 
 // #28 R20/R20a: the exact, closed set of tool names the shipped distro ever
-// legitimately runs — SAFE_TOOLS' built-ins plus the two registered custom
-// tools (free_pi_usage, U5; free_pi_buy_credits, #226). Used two ways, belt
+// legitimately runs — SAFE_TOOLS' built-ins, the registered custom tools
+// (free_pi_usage, U5; free_pi_buy_credits, #226; free_pi_docs; todo), and
+// pi's `codemode` and `tool_search` (2026-10-13, user-added MCP servers). MCP
+// tools themselves (`mcp__<server>__<tool>` and the three MCP resource tools)
+// are not listed: the user picks those servers, and tool-guard.ts admits them
+// by name shape. Used two ways, belt
 // and braces (KTD-7 found `defaultTools` alone does not block an
 // extension-registered tool):
 //   1. Passed as `tools` to createAgentSessionFromServices — the SDK's own
@@ -57,11 +78,41 @@ function catalogModelsFor(opts: LaunchOptions): CatalogModel[] {
 //      `--tools` flag, "only the listed tool names are enabled").
 //   2. Passed to the tool-guard extension, which blocks + reports anything
 //      outside this set that still somehow reaches a tool_call event.
-export const ALLOWED_TOOL_NAMES: readonly string[] = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME];
+export const ALLOWED_TOOL_NAMES: readonly string[] = [
+  ...SAFE_TOOLS,
+  USAGE_TOOL_NAME,
+  BUY_TOOL_NAME,
+  DOCS_TOOL_NAME,
+  TODO_TOOL_NAME,
+  "codemode",
+  "tool_search",
+];
+
+/**
+ * The SDK `tools` list: ALLOWED_TOOL_NAMES plus the MCP tool patterns. pi never
+ * declares an MCP tool that no entry names or matches, so without these a
+ * user server with `"exposure": "direct"` (or a direct `toolExposure`) would
+ * have no tools declared. Servers on the default codemode exposure stay
+ * undeclared either way. The guard still admits the same names (tool-guard.ts).
+ */
+export const SDK_TOOLS: readonly string[] = [
+  ...ALLOWED_TOOL_NAMES,
+  "mcp__*",
+  "list_mcp_resources",
+  "list_mcp_resource_templates",
+  "read_mcp_resource",
+];
+
+/** Bundled skills. From src/ or from the built dist/ the folder is one level up. */
+export const SKILLS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..", "skills");
 
 export interface RuntimeBuildOptions {
   settingsManager: SettingsManager;
-  resourceLoaderOptions: { extensionFactories: InlineExtension[] };
+  resourceLoaderOptions: {
+    extensionFactories: InlineExtension[];
+    additionalSkillPaths: string[];
+    appendSystemPromptOverride: (base: string[]) => string[];
+  };
   /** Names of every extension this distro will load — the property SB1's structural test asserts on. */
   extensionNames: string[];
   tools: readonly string[];
@@ -70,8 +121,7 @@ export interface RuntimeBuildOptions {
 /**
  * Pure construction of the pi runtime free-pi-cli ships: which extensions
  * load, which tools are enabled, and the settings pinning `packages: []`
- * (no pi-package registry, so no MCP adapter or subagent package can be
- * pulled in). Extracted from launchPi() as a test seam (#28 SB1) —
+ * (no pi-package registry, so no subagent package can be pulled in). Extracted from launchPi() as a test seam (#28 SB1) —
  * launchPi() itself drives the real interactive TUI and is only exercised
  * when the bin actually runs, never in `bun test`.
  */
@@ -81,7 +131,51 @@ export function resolveModelName(opts: LaunchOptions): string {
   return opts.models?.[0]?.name || opts.model || MODEL_ID;
 }
 
+/**
+ * The in-memory settings, with trust for one folder. `projectTrusted` gates
+ * every project resource pi would load from that folder (.pi/mcp.json,
+ * .pi/extensions, .pi/settings.json, skills); pi defaults it to true, so it is
+ * always passed explicitly.
+ */
+export function buildSettingsManager(opts: LaunchOptions, models: CatalogModel[], projectTrusted: boolean): SettingsManager {
+  return SettingsManager.inMemory(
+    {
+      defaultProvider: PROVIDER_NAME,
+      // The picker starts on the first catalog model (the server lists the
+      // default first); the user switches with /model.
+      defaultModel: models[0]!.id,
+      defaultTools: [...SAFE_TOOLS, TODO_TOOL_NAME],
+      packages: [],
+      // KTD1: hides pi's own startup header/skills/extensions dump so the
+      // free-pi-header extension's setHeader is the only header shown (R5).
+      quietStartup: true,
+      // pi 1.2.0 defaults to fullscreen; keep 0.84's inline rendering with normal scrollback.
+      tuiMode: "regular",
+      // pi 1.2.0 falls back to a "system" palette; keep 0.84's light/dark pick from the terminal background.
+      theme: "light/dark",
+      // Pi's own install ping to pi.dev/api/report-install (interactive-mode.js)
+      // is off for free-pi users; PI_TELEMETRY=0 below enforces it too.
+      enableInstallTelemetry: false,
+    },
+    { projectTrusted },
+  );
+}
+
+/** Settings for one runtime: pi calls the runtime factory per folder (resume, new, fork, tree). */
+export function settingsForRuntime(
+  opts: LaunchOptions,
+  rtCwd: string,
+  launch: { cwd: string; trusted: boolean },
+): SettingsManager {
+  return buildSettingsManager(opts, catalogModelsFor(opts), projectTrustForCwd(rtCwd, launch, opts.agentDir));
+}
+
 export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): RuntimeBuildOptions {
+  // pi's MCP extension finds mcp.json, mcp-auth.json and mcp.log through
+  // getAgentDir(), which reads this env var and otherwise falls back to the
+  // user's own ~/.pi/agent. Point it at free-pi's agent dir so user servers
+  // live in ~/.free-pi/agent/mcp.json and a real pi install is never read.
+  process.env.PI_CODING_AGENT_DIR = opts.agentDir;
   const models = catalogModelsFor(opts);
   const providerExtension: InlineExtension = {
     name: "free-pi-provider",
@@ -155,16 +249,28 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     updateLatest: opts.updateLatest,
   });
 
-  // Closed, NINE-item list — SB1's structural test fails if a future edit
-  // adds a tenth extension or drops one of these. Settings deliberately
-  // omit `packages` (no pi-packages installed, so no MCP adapter / subagent
-  // extension can be pulled in) and pin `defaultTools` to the built-in tool
-  // set (never includes a subagent/background-bash/MCP tool per pi's own
-  // docs — see provider.ts). Pi ships with none of those by default, so
-  // there is nothing else to turn off — free-pi-cli's job is to never opt
-  // back into them.
+  // 2026-10-13: a task list for the model, and pi's own MCP support so users
+  // can add their own MCP servers (`free-pi-cli mcp add`, ~/.free-pi/agent/mcp.json).
+  // The pi factories are bare functions with no name, so wrap them to keep
+  // extensionNames stable. free-pi bundles no MCP servers. Codemode runs with
+  // `models: false`: scripts get no `models` global, so a script can never
+  // start a model request of its own (one agent per user, SB2).
+  const todoToolExtension: InlineExtension = createTodoToolExtension();
+  const toolAliasesExtension: InlineExtension = createToolAliasesExtension();
+  const mcpExtension: InlineExtension = { name: "pi-mcp", factory: createMcpExtension() };
+  const codemodeExtension: InlineExtension = { name: "pi-codemode", factory: createCodemodeExtension({ models: false }) };
+  const toolSearchExtension: InlineExtension = { name: "pi-tool-search", factory: createToolSearchExtension() };
+
+  // Closed, FIFTEEN-item list — SB1's structural test fails if a future edit
+  // adds or drops one. Settings deliberately omit pi packages (`packages: []`,
+  // so no subagent extension or registry MCP adapter can be pulled in) and
+  // pin `defaultTools` to the built-in tool set plus `todo`. The only MCP
+  // servers that load are the ones the user put in mcp.json; the MCP
+  // extension turns `codemode` on when one connects, and the model reaches
+  // MCP tools through codemode scripts (every call still passes the guard).
   const extensionFactories = [
     providerExtension,
+    createFusionExtension(models[0]!.id),
     adsExtension,
     usageToolExtension,
     buyToolExtension,
@@ -173,32 +279,26 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     toolGuardExtension,
     commandsExtension,
     headerExtension,
+    todoToolExtension,
+    toolAliasesExtension,
+    mcpExtension,
+    codemodeExtension,
+    toolSearchExtension,
   ];
 
-  const settingsManager = SettingsManager.inMemory({
-    defaultProvider: PROVIDER_NAME,
-    // The picker starts on the first catalog model (the server lists the
-    // default first); the user switches with /model.
-    defaultModel: models[0]!.id,
-    defaultTools: [...SAFE_TOOLS],
-    packages: [],
-    // KTD1: hides pi's own startup header/skills/extensions dump so the
-    // free-pi-header extension's setHeader is the only header shown (R5).
-    quietStartup: true,
-    // pi 1.2.0 defaults to fullscreen; keep 0.84's inline rendering with normal scrollback.
-    tuiMode: "regular",
-    // pi 1.2.0 falls back to a "system" palette; keep 0.84's light/dark pick from the terminal background.
-    theme: "light/dark",
-    // Pi's own install ping to pi.dev/api/report-install (interactive-mode.js)
-    // is off for free-pi users; PI_TELEMETRY=0 below enforces it too.
-    enableInstallTelemetry: false,
-  });
+  const settingsManager = buildSettingsManager(opts, models, opts.projectTrusted === true);
 
   return {
     settingsManager,
-    resourceLoaderOptions: { extensionFactories },
+    // The override form, not appendSystemPrompt: that one turns off pi's
+    // discovery of the user's own APPEND_SYSTEM.md.
+    resourceLoaderOptions: {
+      extensionFactories,
+      additionalSkillPaths: [SKILLS_DIR],
+      appendSystemPromptOverride: (base) => [...base, AGENT_RULES],
+    },
     extensionNames: extensionFactories.map((e) => (e as { name: string }).name),
-    tools: ALLOWED_TOOL_NAMES,
+    tools: SDK_TOOLS,
   };
 }
 
@@ -266,7 +366,9 @@ export async function launchPi(opts: LaunchOptions): Promise<string> {
   // The pi logical session id is the lease key shared by the provider and ads.
   const sessionId = sm.getSessionId();
   const scopeIds = catalogModelsFor(opts).map((m) => m.id);
-  const { settingsManager, resourceLoaderOptions, tools } = buildRuntimeOptions(opts, sessionId);
+  const projectTrusted = await decideProjectTrustInteractive(cwd, opts.agentDir);
+  const { resourceLoaderOptions, tools } = buildRuntimeOptions({ ...opts, projectTrusted }, sessionId);
+  const launchTrust = { cwd, trusted: projectTrusted };
 
   const createRuntime: CreateAgentSessionRuntimeFactory = async ({
     cwd: rtCwd,
@@ -276,7 +378,8 @@ export async function launchPi(opts: LaunchOptions): Promise<string> {
     const services = await createAgentSessionServices({
       cwd: rtCwd,
       agentDir: opts.agentDir,
-      settingsManager,
+      // Trust is per folder: /resume may switch to a session from another one.
+      settingsManager: settingsForRuntime(opts, rtCwd, launchTrust),
       resourceLoaderOptions,
     });
     // Lock the model picker to just the free-pi catalog models — pi's own
@@ -306,6 +409,7 @@ export async function launchPi(opts: LaunchOptions): Promise<string> {
     initialMessages: [],
   });
   installBugHandler(mode, { baseUrl: opts.baseUrl, getToken: () => opts.jwt });
+  installFooterRightAlign(mode);
 
   await mode.run();
   return sm.getSessionId();

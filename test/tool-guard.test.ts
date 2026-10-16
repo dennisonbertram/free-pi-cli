@@ -112,3 +112,31 @@ describe("createToolGuardExtension (#28 R20a)", () => {
     expect(result?.block).toBe(true);
   });
 });
+
+describe("createToolGuardExtension — MCP names (2026-10-13)", () => {
+  async function run(toolName: string) {
+    const { pi, handlers } = createFakePi();
+    const ext = createToolGuardExtension({
+      baseUrl: "https://api.test",
+      getToken: () => "jwt",
+      allowedTools: ["bash"],
+      fetchImpl: (async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
+    }) as { factory: (pi: ExtensionAPI) => void };
+    ext.factory(pi);
+    return handlers.get("tool_call")![0]!(toolCallEvent(toolName));
+  }
+
+  test.each(["mcp__stub__echo", "mcp__a_b__c", "list_mcp_resources", "list_mcp_resource_templates", "read_mcp_resource"])(
+    "%s is admitted",
+    async (name) => {
+      expect(await run(name)).toBeUndefined();
+    },
+  );
+
+  test.each(["subagent", "mcp_stub_echo", "xmcp__stub__echo", "read_mcp_resources", "list_mcp"])(
+    "%s is still blocked",
+    async (name) => {
+      expect((await run(name))?.block).toBe(true);
+    },
+  );
+});

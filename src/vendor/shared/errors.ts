@@ -1,5 +1,8 @@
 export const ERROR_CODES = [
   "daily_cap",
+  // Phase 0: personal allowance + slow lane exhausted, but global headroom is
+  // below fallbackLaneMinHeadroomBps — wait rather than a hard dead end.
+  "queue_wait",
   // #40: the per-user ROLLING 5h spend cap (supplements daily_cap above).
   "rolling_cap",
   "concurrent",
@@ -31,6 +34,8 @@ export interface ErrorResponse {
 // mapping was specified upstream; 403 is a placeholder pending that unit.
 export const ERROR_HTTP_STATUS = {
   daily_cap: 429,
+  // Phase 0: same 429 + Retry-After shape as daily_cap / hourly_ceiling.
+  queue_wait: 429,
   // #40: same shape as the other rate-based 429s (daily_cap/hourly_ceiling) —
   // a Retry-After header accompanies the response (routes/completions.ts).
   rolling_cap: 429,

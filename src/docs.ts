@@ -1,5 +1,7 @@
 // R7: the owner-approved free-pi guide, verbatim. Do not reword, reorder, or
 // add lines to this string — it is reviewed copy, not implementer prose.
+// 2026-10-13: added the todo and MCP sections and the /todos and /mcp command
+// lines (CLI 0.4.0); the rest is unchanged.
 export const FREE_PI_DOCS = `# free-pi
 
 ## What free-pi is
@@ -36,6 +38,33 @@ first. Purchased credits cover use beyond it and do not expire.
 - \`/close-other-session\` — free a stuck session on another machine
 - \`/update\` — get the latest free-pi
 - \`/whats-new\` — what changed in recent releases
+- \`/todos\` — show the agent's todo list
+- \`/mcp\` — manage your MCP servers (connect, sign in, turn on or off)
+
+## Todo list
+The agent keeps its own todo list with the \`todo\` tool, to track multi-step
+work. While any item is open, the list shows live above the input box, and
+each todo change prints a progress line in the conversation. \`/todos\` shows
+the full list. The list belongs to the session and comes back when you resume
+it.
+
+## MCP servers
+MCP (Model Context Protocol) servers give the agent extra tools, such as a
+database, a browser, or an internal API. free-pi includes none; you add your
+own. The agent reaches their tools by writing a short script for its
+\`codemode\` tool.
+Servers live in \`~/.free-pi/agent/mcp.json\`. A project can have its own
+\`.pi/mcp.json\`; it is read only after you trust the project when asked.
+Add a server from a shell, or ask the agent to run the command for you with
+its bash tool:
+\`free-pi-cli mcp add files -- npx -y @modelcontextprotocol/server-filesystem .\`
+\`free-pi-cli mcp add docs --url https://example.com/mcp\`
+Other commands: \`free-pi-cli mcp list\` (add \`--json\` for machine output),
+\`free-pi-cli mcp remove <server>\`, \`free-pi-cli mcp login <server>\` to sign
+in to a server that uses OAuth, and \`free-pi-cli mcp logout <server>\`. Add
+\`-l\` to add or remove in the current project instead of globally.
+Inside a session, \`/mcp\` shows each server and its tools, and lets you sign
+in, reconnect, or turn a server on or off.
 
 ## Support
 Today's sponsor keeps free-pi free. When the user asks how to help the

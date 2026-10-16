@@ -280,11 +280,13 @@ describe("/privacy-policy (openPrivacyPolicy)", () => {
 
 describe("/usage (showUsage)", () => {
   const STATS = {
-    user_id: "u1", handle: "octocat", tier: "young", cap_usd_today: 2, spent_usd_today: 0.5, remaining_usd_today: 1.5,
-    credit_usd: 3.75, credit_credits: 50000, request_count_today: 3, prompt_tokens_today: 120, completion_tokens_today: 60,
+    user_id: "u1", handle: "octocat", tier: "young", cap_usd_today: 1.125, spent_usd_today: 0.195, remaining_usd_today: 0.93,
+    credit_usd: 3.75, credit_credits: 50000, allowance_credits: 15000, remaining_credits_today: 12400,
+    refill_at: "2026-10-15T00:00:00.000Z", lane: "standard", bonus_credits: 50000,
+    request_count_today: 3, prompt_tokens_today: 120, completion_tokens_today: 60,
     lifetime: { spent_usd: 4.2, prompt_tokens: 900, completion_tokens: 400, request_count: 12 },
   };
-  test("notifies the same percentage-only text as the tool, from GET /me/stats", async () => {
+  test("notifies credits left + refill, never dollars, from GET /me/stats", async () => {
     const urls: string[] = [];
     const fetchImpl = fakeFetch((url) => { urls.push(url); return Response.json(STATS); });
     const { ctx, notes } = notifyCtx();
@@ -294,11 +296,13 @@ describe("/usage (showUsage)", () => {
     expect(notes[0]!.type).toBe("info");
     expect(notes[0]!.msg.split("\n")).toEqual([
       "tier: young",
-      "today: 25% of your free daily allowance used",
+      "12,400 / 15,000 credits left today · refills 8:00 PM ET",
       "credit: 50,000 credits remaining",
       "today tokens: 120 prompt / 60 completion",
       "lifetime: 900 prompt / 400 completion tokens",
+      "buy more credits: /buy-credits",
     ]);
+    expect(notes[0]!.msg).not.toMatch(/\$/);
   });
   test("server error → one error notice, never throws", async () => {
     const { ctx, notes } = notifyCtx();

@@ -5,6 +5,33 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.2] - 2026-10-14
+
+### Changed
+- Credits now sit on the right of the footer, under the model name.
+
+## [0.4.1] - 2026-10-14
+
+### Added
+- A credits meter ("<n> credits") in the footer status bar. If you have bought credits, it reads
+  "<free> + <bought> credits".
+- A warning line when 10% or less of your daily credits are left, and another when you are in the
+  slow lane. Each links to freepi.ai/buy.
+- `/usage` now shows "X / Y credits left today" with the refill time, the slow-lane line when it
+  applies, and a final "buy more credits: /buy-credits" line.
+
+## [0.4.0] - 2026-10-13
+
+### Added
+- A `todo` tool the agent uses to track multi-step work, and a `/todos` command that shows the list.
+  The open items show live above the input box (a one-line form, or a short list in a narrow
+  terminal), each todo change prints a progress line in the conversation, and the list is stored in
+  the session, so it follows branches and comes back on resume.
+- MCP server support. You add your own servers (free-pi bundles none) in
+  `~/.free-pi/agent/mcp.json`, or in a trusted project's `.pi/mcp.json`. The agent reaches their
+  tools through its `codemode` tool, and `/mcp` manages the servers inside a session.
+- `free-pi-cli mcp add|remove|list|login|logout`: manage MCP servers from a shell.
+
 ## [0.3.0] - 2026-10-13
 
 ### Changed

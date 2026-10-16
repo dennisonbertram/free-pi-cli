@@ -115,6 +115,12 @@ describe("FREE_PI_DOCS content (R7, R9)", () => {
     }
   });
 
+  test("documents the todo list and MCP servers", () => {
+    for (const text of ["## Todo list", "## MCP servers", "/todos", "/mcp", "free-pi-cli mcp add", "~/.free-pi/agent/mcp.json"]) {
+      expect(FREE_PI_DOCS).toContain(text);
+    }
+  });
+
   test("contains no ad creative, advertiser name, or price", () => {
     expect(FREE_PI_DOCS).not.toContain("AD ░▒▓");
     expect(FREE_PI_DOCS).not.toContain("Honcho");

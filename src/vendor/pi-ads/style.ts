@@ -63,7 +63,7 @@ function pad(text: string, width: number): string {
  * feedback, 2026-08-18, #61). Clickable where OSC 8 is supported; a clean,
  * legible destination where it is not.
  */
-function osc8(text: string, url: string, id?: string): string {
+export function osc8(text: string, url: string, id?: string): string {
   const params = id ? `id=${id}` : "";
   return `\x1b]8;${params};${url}\x07${text}\x1b]8;;\x07`;
 }
@@ -138,4 +138,9 @@ export function renderPlainAdLine(
 
 export function renderErrorLine(message: string, theme: ThemeLike): string {
   return theme.fg("error", message);
+}
+
+/** Warning-colored (not error) meter line, e.g. a low-credit or slow-lane nudge. */
+export function renderWarningLine(message: string, theme: ThemeLike): string {
+  return theme.fg("warning", message);
 }

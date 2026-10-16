@@ -69,6 +69,9 @@ export type AuthConsentRequest = z.infer<typeof AuthConsentRequestSchema>;
 export const AccountTierSchema = z.enum(["new", "young", "established"]);
 export type AccountTier = z.infer<typeof AccountTierSchema>;
 
+export const UsageLaneSchema = z.enum(["standard", "fallback", "wait"]);
+export type UsageLane = z.infer<typeof UsageLaneSchema>;
+
 export const MeResponseSchema = z.object({
   user_id: z.string(),
   handle: z.string(),
@@ -81,6 +84,12 @@ export const MeResponseSchema = z.object({
   notice: z.string().optional(),
   /** #224: a fresh short-lived buy-page URL (what the /buy-credits tool opens). Never cache it. */
   buy_url: z.string().optional(),
+  /** Phase 0 credits: optional so older CLIs ignore them. Same values as /me/stats. */
+  allowance_credits: z.number().optional(),
+  remaining_credits_today: z.number().optional(),
+  refill_at: z.string().optional(),
+  lane: UsageLaneSchema.optional(),
+  bonus_credits: z.number().optional(),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
 
@@ -95,6 +104,16 @@ export const MeStatsResponseSchema = z.object({
   credit_usd: z.number(),
   /** #credits: purchased balance as whole display credits (server-owned peg; display-only). */
   credit_credits: z.number(),
+  /** Phase 0: today's free allowance in whole display credits (display-only). */
+  allowance_credits: z.number(),
+  /** Phase 0: free-allowance credits still unused today (excludes purchased bonus). */
+  remaining_credits_today: z.number(),
+  /** Phase 0: next UTC midnight (usage_daily.date boundary), ISO-8601. */
+  refill_at: z.string(),
+  /** Phase 0: standard | fallback (slow lane) | wait (queue_wait or daily_cap). */
+  lane: UsageLaneSchema,
+  /** Phase 0: purchased plus granted bonus credits (display-only). */
+  bonus_credits: z.number(),
   request_count_today: z.number(),
   prompt_tokens_today: z.number(),
   completion_tokens_today: z.number(),

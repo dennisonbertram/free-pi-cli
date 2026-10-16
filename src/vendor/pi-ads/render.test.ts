@@ -5,7 +5,7 @@ import { fetchAdNext, postImpression, type AdsDeps } from "./api";
 import { BANNER_WIDGET_ID, createBannerRenderer } from "./banner";
 import { inferErrorFromRemainingBudget, mapErrorCode } from "./errors";
 import { createInlineRenderer, INLINE_WIDGET_ID } from "./inline";
-import { CONFIRM_TURNS, creditAddedMessage, METER_WIDGET_ID, renderMeter, resetMeterState } from "./meter";
+import { CONFIRM_TURNS, LOW_CREDIT_FRACTION, creditAddedMessage, METER_STATUS_KEY, METER_WIDGET_ID, renderMeter, resetMeterState } from "./meter";
 import { renderAdCard, renderPlainAdLine, sanitizeText } from "./style";
 
 const config = loadConfig({}); // defaults: adInlineTurnFrequency=5, adMinColumns=60
@@ -16,16 +16,20 @@ interface WidgetCall {
   options?: unknown;
 }
 
-function fakeCtx(): { ctx: ExtensionContext; widgetCalls: WidgetCall[] } {
+function fakeCtx(): { ctx: ExtensionContext; widgetCalls: WidgetCall[]; statusCalls: { key: string; text: string | undefined }[] } {
   const widgetCalls: WidgetCall[] = [];
+  const statusCalls: { key: string; text: string | undefined }[] = [];
   const ui = {
+    setStatus: (key: string, text: string | undefined) => {
+      statusCalls.push({ key, text });
+    },
     setWidget: (id: string, content: unknown, options?: unknown) => {
       widgetCalls.push({ id, content, options });
     },
     theme: { fg: (_c: string, t: string) => t, bold: (t: string) => t },
   };
   const ctx = { ui } as unknown as ExtensionContext;
-  return { ctx, widgetCalls };
+  return { ctx, widgetCalls, statusCalls };
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -240,7 +244,8 @@ describe("narrow terminal fallback", () => {
 
 describe("mapErrorCode", () => {
   test("daily_cap contains the exact reset-time message", () => {
-    expect(mapErrorCode("daily_cap")).toBe("out of free tokens today, resets at 00:00 UTC");
+    expect(mapErrorCode("daily_cap")).toBe("out of free credits today — refills at UTC midnight");
+    expect(mapErrorCode("queue_wait")).toBe("free-pi is near its daily budget — wait and retry");
   });
 
   test("every error code maps to a non-empty message", () => {
@@ -411,12 +416,132 @@ describe("meter: server-supplied notice (#225)", () => {
     expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: [mapErrorCode("daily_cap")], options: undefined }]);
   });
 
-  test("no notice (or an empty one) + budget left → no widget, as before", async () => {
+  test("no notice (or an empty one) + budget left on an old server → no widget, as before", async () => {
     for (const body of [{ remaining_usd_today: 4.5 }, { remaining_usd_today: 4.5, notice: "" }, { remaining_usd_today: 4.5, notice: "   " }]) {
       const { ctx, widgetCalls } = fakeCtx();
       await renderMeter(deps(meFetch(body)), ctx);
       expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: undefined, options: undefined }]);
     }
+  });
+
+  test("Phase 0: standard lane shows only the remaining credits in the footer status, no widget", async () => {
+    const { ctx, widgetCalls, statusCalls } = fakeCtx();
+    await renderMeter(
+      deps(
+        meFetch({
+          remaining_usd_today: 0.93,
+          allowance_credits: 15_000,
+          remaining_credits_today: 14_984,
+          refill_at: "2026-10-15T00:00:00.000Z",
+          lane: "standard",
+        }),
+      ),
+      ctx,
+    );
+    expect(statusCalls.at(-1)).toEqual({ key: METER_STATUS_KEY, text: "14,984 credits" });
+    expect(widgetCalls).toEqual([{ id: METER_WIDGET_ID, content: undefined, options: undefined }]);
+  });
+
+  test("Phase 0: standard lane footer adds purchased credits when bonus_credits > 0", async () => {
+    const run = async (extra: Record<string, unknown>) => {
+      const { ctx, statusCalls } = fakeCtx();
+      await renderMeter(
+        deps(meFetch({ remaining_usd_today: 0.93, allowance_credits: 15_000, remaining_credits_today: 14_613,
+          refill_at: "2026-10-15T00:00:00.000Z", lane: "standard", ...extra })),
+        ctx,
+      );
+      return statusCalls.at(-1)!.text;
+    };
+    expect(await run({ bonus_credits: 100_000 })).toBe("14,613 + 100,000 credits");
+    expect(await run({ bonus_credits: 0 })).toBe("14,613 credits");
+    expect(await run({})).toBe("14,613 credits");
+  });
+
+  test("Phase 0: fallback lane shows '0 credits · slow lane' in the footer, no widget", async () => {
+    const { ctx, widgetCalls, statusCalls } = fakeCtx();
+    await renderMeter(
+      deps(
+        meFetch({
+          remaining_usd_today: 0,
+          allowance_credits: 15_000,
+          remaining_credits_today: 0,
+          refill_at: "2026-10-15T00:00:00.000Z",
+          lane: "fallback",
+        }),
+      ),
+      ctx,
+    );
+    expect(statusCalls.at(-1)).toEqual({ key: METER_STATUS_KEY, text: "0 credits · slow lane" });
+    expect(widgetCalls.at(-1)!.content).toEqual(["Out of free credits — slow lane until refill"]);
+  });
+
+  test("old server without credit fields and a notice both leave the footer status cleared", async () => {
+    for (const body of [{ remaining_usd_today: 4.5 }, { remaining_usd_today: 0, notice: "buy more" }]) {
+      const { ctx, statusCalls } = fakeCtx();
+      await renderMeter(deps(meFetch(body)), ctx);
+      expect(statusCalls.at(-1)).toEqual({ key: METER_STATUS_KEY, text: undefined });
+    }
+  });
+});
+
+describe("meter: low-credit and slow-lane nudges", () => {
+  const BUY = "https://api.test/buy/SECRET.TOKEN.xyz";
+  function me(remaining: number, extra: Record<string, unknown> = {}): typeof fetch {
+    return (async () =>
+      jsonResponse({
+        user_id: "u1", handle: "o", cap_usd_today: 5, tier: "established", remaining_usd_today: 0.5,
+        allowance_credits: 15_000, remaining_credits_today: remaining, refill_at: "2026-10-15T00:00:00.000Z",
+        lane: "standard", buy_url: BUY, ...extra,
+      })) as unknown as typeof fetch;
+  }
+  function colorCtx() {
+    const r = fakeCtx();
+    (r.ctx.ui as unknown as { theme: unknown }).theme = { fg: (c: string, t: string) => `<${c}>${t}</${c}>`, bold: (t: string) => t };
+    return r;
+  }
+  const link = (t: string) => `\x1b]8;;${BUY}\x07${t}\x1b]8;;\x07`;
+
+  test("exactly 10% shows a warning-colored widget with a clickable link; footer unchanged", async () => {
+    const { ctx, widgetCalls, statusCalls } = colorCtx();
+    await renderMeter(deps(me(LOW_CREDIT_FRACTION * 15_000)), ctx);
+    expect(widgetCalls.at(-1)!.content).toEqual([`<warning>Low on credits: 1,500 left today · Buy more: ${link("freepi.ai/buy")}</warning>`]);
+    expect(statusCalls.at(-1)!.text).toBe("<muted>1,500 credits</muted>");
+  });
+
+  test("just above 10% and zero-remaining standard have no warning", async () => {
+    const { ctx, widgetCalls } = colorCtx();
+    await renderMeter(deps(me(1_501)), ctx);
+    expect(widgetCalls.at(-1)!.content).toBeUndefined();
+  });
+
+  test("the raw buy_url is only the link target, never visible text", async () => {
+    const { ctx, widgetCalls } = colorCtx();
+    await renderMeter(deps(me(1_200)), ctx);
+    const line = (widgetCalls.at(-1)!.content as string[])[0]!;
+    const visible = line.replace(/\x1b\]8;;[^\x07]*\x07/g, "");
+    expect(visible).not.toContain("SECRET");
+    expect(visible).not.toContain("error");
+  });
+
+  test("a buy_url carrying control bytes cannot break out of the OSC 8 target", async () => {
+    const { ctx, widgetCalls } = colorCtx();
+    await renderMeter(deps(me(1_200, { buy_url: `${BUY}\x07\x1b[2J` })), ctx);
+    const line = (widgetCalls.at(-1)!.content as string[])[0]!;
+    expect(line).not.toContain("\x1b[2J");
+    expect(line).toContain(link("freepi.ai/buy"));
+  });
+
+  test("no buy_url → warning without a link", async () => {
+    const { ctx, widgetCalls } = colorCtx();
+    await renderMeter(deps(me(1_200, { buy_url: undefined })), ctx);
+    expect(widgetCalls.at(-1)!.content).toEqual(["<warning>Low on credits: 1,200 left today</warning>"]);
+  });
+
+  test("slow lane: footer plus warning widget with link", async () => {
+    const { ctx, widgetCalls, statusCalls } = colorCtx();
+    await renderMeter(deps(me(0, { lane: "fallback" })), ctx);
+    expect(statusCalls.at(-1)!.text).toBe("<muted>0 credits · slow lane</muted>");
+    expect(widgetCalls.at(-1)!.content).toEqual([`<warning>Out of free credits — slow lane until refill · Buy more: ${link("freepi.ai/buy")}</warning>`]);
   });
 });
 

@@ -18,9 +18,10 @@
 // close. R19 (the session lease, apps/server/src/agent-sessions.ts) is the
 // server-side backstop for that residual case, not this test.
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createAgentSessionFromServices,
   createAgentSessionServices,
@@ -31,6 +32,7 @@ import { MODEL_ID, SAFE_TOOLS } from "../src/provider";
 import { USAGE_TOOL_NAME } from "../src/usage-tool";
 import { BUY_TOOL_NAME } from "../src/buy-tool";
 import { DOCS_TOOL_NAME } from "../src/docs-tool";
+import { TODO_TOOL_NAME } from "../src/todo-tool";
 
 function tempDir(prefix: string): string {
   return mkdtempSync(join(tmpdir(), prefix));
@@ -50,7 +52,7 @@ describe("closed extension list (#28 R20, SB1)", () => {
     expect(opts.settingsManager.getThemeSetting()).toBe("light/dark");
   });
 
-  test("buildRuntimeOptions registers exactly the nine known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the fifteen known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
     // #226: the closed set deliberately grew to six with free-pi-buy-tool;
     // 2026-09-01: to seven with free-pi-error-notice (one readable line on a
@@ -65,19 +67,25 @@ describe("closed extension list (#28 R20, SB1)", () => {
         "free-pi-commands",
         "free-pi-docs-tool",
         "free-pi-error-notice",
+        "free-pi-fusion",
         "free-pi-header",
         "free-pi-provider",
+        "free-pi-tool-aliases",
+        "free-pi-todo",
         "free-pi-tool-guard",
         "free-pi-usage-tool",
+        "pi-codemode",
+        "pi-mcp",
+        "pi-tool-search",
       ].sort(),
     );
   });
 
-  test("settings pin packages: [] and defaultTools to exactly SAFE_TOOLS", () => {
+  test("settings pin packages: [] and defaultTools to exactly SAFE_TOOLS plus todo", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-b");
     const settings = opts.settingsManager.getGlobalSettings();
     expect(settings.packages).toEqual([]);
-    expect([...(settings.defaultTools ?? [])].sort()).toEqual([...SAFE_TOOLS].sort());
+    expect([...(settings.defaultTools ?? [])].sort()).toEqual([...SAFE_TOOLS, TODO_TOOL_NAME].sort());
   });
 
   test("settings carry quietStartup: true (KTD1, hides pi's own header)", () => {
@@ -86,9 +94,27 @@ describe("closed extension list (#28 R20, SB1)", () => {
     expect(settings.quietStartup).toBe(true);
   });
 
-  test("the strict SDK tools allowlist is exactly SAFE_TOOLS plus the three legitimate custom tools", () => {
+  test("the strict SDK tools allowlist is exactly SAFE_TOOLS plus the custom tools, todo, codemode and tool_search", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-c");
-    expect([...opts.tools].sort()).toEqual([...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME].sort());
+    expect([...opts.tools].sort()).toEqual(
+      [
+        ...SAFE_TOOLS,
+        USAGE_TOOL_NAME,
+        BUY_TOOL_NAME,
+        DOCS_TOOL_NAME,
+        TODO_TOOL_NAME,
+        "codemode",
+        "tool_search",
+        // MCP patterns, so direct-exposure user servers are declared (2026-10-14).
+        "mcp__*",
+        "list_mcp_resources",
+        "list_mcp_resource_templates",
+        "read_mcp_resource",
+      ].sort(),
+    );
+    for (const name of ["subagent", "background_bash", "task", "agent", "sub_agent", "spawn_agent"]) {
+      expect(opts.tools).not.toContain(name);
+    }
   });
 
   test("resolveModelName (KTD6): catalog name, then model id, then MODEL_ID", () => {
@@ -124,6 +150,12 @@ describe("closed extension list (#28 R20, SB1)", () => {
       expect(SAFE_TOOLS as readonly string[]).not.toContain(name);
       expect(ALLOWED_TOOL_NAMES).not.toContain(name);
     }
+  });
+
+  test("codemode and tool_search are the only new non-MCP names beyond the 2026-10-13 todo tool", () => {
+    const known = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME, TODO_TOOL_NAME];
+    expect(ALLOWED_TOOL_NAMES.filter((n) => !known.includes(n)).sort()).toEqual(["codemode", "tool_search"]);
+    expect(ALLOWED_TOOL_NAMES.some((n) => n.startsWith("mcp__"))).toBe(false);
   });
 });
 
@@ -267,4 +299,114 @@ describe("dynamic: a real multi-turn tool-calling AgentSession never opens a 2nd
       stub.stop(true);
     }
   }, 20_000);
+});
+
+/** An assistant turn with one tool_call of any name. */
+function namedToolCallSse(name: string, args: unknown): string {
+  const base = { id: "resp-m", object: "chat.completion.chunk", created: 3, model: "deepseek/deepseek-v4-flash" };
+  const start = {
+    ...base,
+    choices: [
+      {
+        index: 0,
+        delta: {
+          role: "assistant",
+          content: null,
+          tool_calls: [{ index: 0, id: "call-m", type: "function", function: { name, arguments: JSON.stringify(args) } }],
+        },
+        finish_reason: null,
+      },
+    ],
+  };
+  const end = { ...base, choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] };
+  return sseFrame(start) + sseFrame(end) + "data: [DONE]\n\n";
+}
+
+describe("dynamic: codemode calling a user-added MCP server stays one request at a time (2026-10-13, SB2 + Q3)", () => {
+  test("a codemode script calls a stub stdio MCP tool; the guard admits it and no 2nd completion opens", async () => {
+    let openCount = 0;
+    let maxOpen = 0;
+    let callCount = 0;
+    const toolNamesSeen = new Set<string>();
+    const otherPaths: string[] = [];
+    let secondRequestBody = "";
+
+    const stub = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const url = new URL(req.url);
+        if (req.method !== "POST" || url.pathname !== "/v1/chat/completions") {
+          otherPaths.push(url.pathname);
+          return new Response("not found", { status: 404 });
+        }
+        openCount++;
+        maxOpen = Math.max(maxOpen, openCount);
+        try {
+          const raw = await req.text();
+          const body = JSON.parse(raw) as { messages?: Array<Record<string, unknown>> };
+          for (const msg of body.messages ?? []) {
+            const toolCalls = msg.tool_calls as Array<{ function?: { name?: string } }> | undefined;
+            for (const tc of toolCalls ?? []) {
+              if (tc.function?.name) toolNamesSeen.add(tc.function.name);
+            }
+          }
+          const isFirstCall = callCount === 0;
+          if (callCount === 1) secondRequestBody = raw;
+          callCount++;
+          await Bun.sleep(15);
+          const sse = isFirstCall
+            ? namedToolCallSse("codemode", {
+                code: 'const r = await tools.mcp__stub__echo({ text: "hi" }); return JSON.stringify(r);',
+              })
+            : finalTextSse();
+          return new Response(sse, { headers: { "content-type": "text/event-stream" } });
+        } finally {
+          openCount--;
+        }
+      },
+    });
+
+    try {
+      const baseUrl = stub.url.toString().replace(/\/$/, "");
+      const cwd = tempDir("free-pi-cwd-");
+      const opts: LaunchOptions = { baseUrl, jwt: "test-jwt", agentDir: tempDir("free-pi-agentdir-") };
+      const server = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "stub-mcp-server.mjs");
+      writeFileSync(
+        join(opts.agentDir, "mcp.json"),
+        JSON.stringify({ mcpServers: { stub: { command: process.execPath, args: [server] } } }),
+      );
+      const { settingsManager, resourceLoaderOptions, tools } = buildRuntimeOptions(opts, "session-dyn-mcp");
+
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir: opts.agentDir,
+        settingsManager,
+        resourceLoaderOptions,
+      });
+      const { session } = await createAgentSessionFromServices({
+        services,
+        sessionManager: SessionManager.inMemory(cwd),
+        tools: [...tools],
+      });
+
+      try {
+        await session.bindExtensions({});
+        await session.prompt("Call the stub echo tool through codemode.");
+      } finally {
+        session.dispose();
+      }
+
+      expect(maxOpen).toBeLessThanOrEqual(1);
+      expect(callCount).toBe(2);
+      // The only tool the model ever called is codemode, which is allowlisted.
+      expect(toolNamesSeen).toEqual(new Set(["codemode"]));
+      for (const name of toolNamesSeen) expect(ALLOWED_TOOL_NAMES).toContain(name);
+      // The script really reached the MCP server: its output came back in the 2nd request.
+      expect(secondRequestBody).toContain("echo:hi");
+      // The production guard blocked nothing: it would have POSTed /telemetry/tool-guard.
+      expect(otherPaths).not.toContain("/telemetry/tool-guard");
+    } finally {
+      stub.stop(true);
+    }
+  }, 30_000);
 });

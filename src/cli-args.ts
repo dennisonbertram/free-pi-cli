@@ -1,9 +1,10 @@
-// Pure argv parsing for the local commands (help / version / logout) and the
+// Pure argv parsing for the local commands (help / version / logout / mcp) and the
 // `--session <id>` resume flag, extracted from index.ts (untestable: main() runs on import) as a test seam.
 //
 // Privacy note, same invariant as run()'s decline path: none of the commands
 // parsed here ever contact the free-pi server — they print or touch local
-// files and exit. --session is not one of them: it maps to { kind: "run" } (the id is validated
+// files and exit. (`mcp` reads and writes mcp.json and connects only to the
+// MCP servers the user names.) --session is not one of them: it maps to { kind: "run" } (the id is validated
 // in run.ts). Only { kind: "run" } proceeds into the consent-gated flow.
 import { CLI_VERSION } from "./version";
 
@@ -12,6 +13,7 @@ export type CliCommand =
   | { kind: "help" }
   | { kind: "version" }
   | { kind: "logout" }
+  | { kind: "mcp"; args: string[] }
   | { kind: "unknown"; arg: string };
 
 export const HELP_TEXT = `
@@ -21,6 +23,8 @@ Usage:
   free-pi-cli                 start the coding agent (first run: consent + GitHub sign-in)
   free-pi-cli --session <id>  resume a previous session
   free-pi-cli logout          remove the stored sign-in token; the next run signs in again
+  free-pi-cli mcp <command>   add, remove, list, or sign in to your own MCP servers
+                              (free-pi-cli mcp --help for details)
   free-pi-cli --version       print the CLI version
   free-pi-cli --help          show this help
 
@@ -43,6 +47,9 @@ export function versionLine(): string {
 export function parseCliArgs(argv: readonly string[]): CliCommand {
   const [first, ...rest] = argv;
   if (first === undefined) return { kind: "run" };
+
+  // Everything after `mcp` belongs to pi's mcp command, so pass it through untouched.
+  if (first === "mcp") return { kind: "mcp", args: rest };
 
   // run.ts reads and validates the value itself (incl. the missing-value message).
   if (first === "--session") {

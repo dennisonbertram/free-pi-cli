@@ -11,6 +11,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.2",
+    highlights: ["Credits now sit on the right of the footer, under the model name."],
+  },
+  {
+    version: "0.4.1",
+    highlights: [
+      "The footer now shows your credits left, including any you bought. A warning appears when you are low or in the slow lane.",
+      "/usage shows credits left today and when they refill, with /buy-credits to get more.",
+    ],
+  },
+  {
+    version: "0.4.0",
+    highlights: [
+      "The agent now keeps a todo list for multi-step work: it shows live above the input box, and /todos shows the full list.",
+      "Add your own MCP servers: `npx free-pi-cli mcp add`, then /mcp in a session to manage them.",
+    ],
+  },
+  {
     version: "0.3.0",
     highlights: [
       "Upgraded the underlying pi agent engine to 1.2.0.",

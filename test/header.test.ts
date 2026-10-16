@@ -48,7 +48,7 @@ describe("headerLines (R1-R3, R6)", () => {
     const commandLines = lines.slice(8, 15);
     const expectedNames = ["/usage", "/support", "/tos", "/privacy-policy", "/buy-credits", "/close-other-session", "/update"];
     const expectedDescriptions = [
-      "spend and remaining budget today",
+      "credits left today and refill time",
       "visit today's advertiser",
       "terms of service",
       "privacy policy",

@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.5",
+    highlights: [
+      "New /reverse-engineer-anything command: loads REA reverse-engineering tools (apps, binaries, APKs, websites) into the session. For lawful, authorized analysis only.",
+    ],
+  },
+  {
     version: "0.4.4",
     highlights: [
       "Updated terms: you'll be asked to accept them once.",

@@ -21,6 +21,12 @@ export interface CreateCommandsOptions {
   /** KTD7: reads the click URL of the banner ad currently shown, set by
    * pi-ads' onBannerAd callback. Undefined when no ad is shown. */
   getAdvertiserUrl?: () => string | undefined;
+  /** Injected in tests: overrides the npx command /reverse-engineer-anything registers. */
+  reaServer?: { command: string; args: string[] };
+  /** Injected in tests; defaults to process.versions.node. */
+  nodeVersion?: string;
+  /** Injected in tests; defaults to process.platform. */
+  platform?: NodeJS.Platform;
 }
 
 /** Minimal shape of the command context we use — just the notify surface. */
@@ -181,6 +187,50 @@ export async function showUsage(opts: CreateCommandsOptions, ctx: NotifyContext)
   ctx.ui.notify(r.text, r.ok ? "info" : "error");
 }
 
+// ---- /reverse-engineer-anything ---------------------------------------------
+
+const REA_ARGS = ["-y", "rea-agents@6.7.0", "mcp"];
+const REA_DESCRIPTION =
+  "Reverse-engineering tools (REA): native binaries, JS/Electron apps, APKs, .NET, websites. Use for lawful, authorized analysis only.";
+const REA_NODE_RANGE = "^22.19.0, ^24.11.0, or >=26.0.0";
+
+/** rea-agents' engines range: ^22.19.0 || ^24.11.0 || >=26.0.0 (no semver dependency for one range). */
+function reaSupportsNode(version: string): boolean {
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  return major >= 26 || (major === 24 && minor >= 11) || (major === 22 && minor >= 19);
+}
+
+/**
+ * Registers the rea MCP server for this session only. Registering it at
+ * startup would spawn it for every user and add a line to every system prompt,
+ * so it happens only here. Never throws.
+ */
+export function loadRea(pi: Pick<ExtensionAPI, "registerMcpServer" | "getMcpServers">, opts: CreateCommandsOptions, ctx: NotifyContext): void {
+  const nodeVersion = opts.nodeVersion ?? process.versions.node;
+  if (!reaSupportsNode(nodeVersion)) {
+    ctx.ui.notify(`REA needs Node ${REA_NODE_RANGE}; you are on Node ${nodeVersion}. Update Node and restart free-pi-cli.`, "error");
+    return;
+  }
+  if (pi.getMcpServers().some((s) => s.name === "rea")) {
+    ctx.ui.notify("REA is already loaded in this session.", "info");
+    return;
+  }
+  const win = (opts.platform ?? process.platform) === "win32";
+  const server = opts.reaServer ?? (win ? { command: "cmd.exe", args: ["/d", "/c", "npx", ...REA_ARGS] } : { command: "npx", args: REA_ARGS });
+  try {
+    // 300 s per request: the first npx download and native decompiles can outlast pi's 60 s default.
+    pi.registerMcpServer("rea", { ...server, exposure: "codemode", description: REA_DESCRIPTION, timeout: 300 });
+  } catch {
+    ctx.ui.notify("Couldn't load REA in this session.", "error");
+    return;
+  }
+  ctx.ui.notify(
+    "Loading REA (reverse-engineering tools) for this session. The first run downloads rea-agents, so it can take a minute. " +
+      "Deep native analysis needs your own Hopper, Ghidra, or IDA install.",
+    "info",
+  );
+}
+
 // ---- extension ------------------------------------------------------------
 
 export function createFreePiCommandsExtension(opts: CreateCommandsOptions): InlineExtension {
@@ -220,6 +270,10 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("privacy-policy", {
         description: "Open the free-pi Privacy Policy in your browser.",
         handler: (_args, ctx) => openPrivacyPolicy(opts, ctx),
+      });
+      pi.registerCommand("reverse-engineer-anything", {
+        description: "Load reverse-engineering tools (REA: binaries, apps, APKs, websites) for this session.",
+        handler: async (_args, ctx) => loadRea(pi, opts, ctx),
       });
     },
   };

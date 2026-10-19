@@ -5,6 +5,14 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.5] - 2026-10-19
+
+### Added
+- `/reverse-engineer-anything` loads REA (Reverse Engineer Anything) reverse-engineering tools into
+  the current session. Inspect JavaScript/Electron apps, .NET assemblies, Go/Rust binaries, APKs,
+  websites and native binaries (with your own Ghidra, Hopper or IDA). It downloads `rea-agents` on
+  first use and needs Node 22.19+, 24.11+ or 26+. Use it for lawful, authorized analysis only.
+
 ## [0.4.4] - 2026-10-19
 
 ### Changed

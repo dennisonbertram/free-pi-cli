@@ -1,16 +1,16 @@
 {
   "note": "Written by scripts/sync-public-cli.ts in the free-pi monorepo. `files` is the sha256 of everything the last sync wrote; the next sync refuses to run if any of it changed here without being ported back into the monorepo. Do not edit by hand.",
-  "source_version": "0.4.4",
+  "source_version": "0.4.5",
   "files": {
     "src/agent-rules.ts": "6bf593b32354f566708ebf9403efd33b170ea01c91dede6ef04ccdf43e26ae66",
     "src/auth-flow.ts": "83a44b69014e4baee2cdfae87243778c075df321b62192e33022b50eb4d27a1e",
     "src/browser.ts": "4319c704b07bf5a635b42629457c246c7675f4445f47475cddbbac8a62eecb51",
     "src/bug-report.ts": "d8a9fcb2bb98733922c95322f3b17eec45d271b5496186caf9b6c593604a963f",
     "src/buy-tool.ts": "b43e073f396307c07e19960a6dcfaacdcac5fb2d52a1d8f7c913ec36df5c862f",
-    "src/changelog.ts": "e0a3fffdbf066f1aaff6dfde9fdae5e182cc9382e64bbf42e51132c907a1caa9",
+    "src/changelog.ts": "8b7cbb92638cef3f25908762024bf71e685e10c995f2db970ab24f13bd747238",
     "src/cli-args.ts": "af47c06a851066b7f36c66f2150bf631b85c70c2107c80ed12e2cc0e619fc7f6",
     "src/cli-config.ts": "1f64d7d8efe3f20ca0907dacf9b0e67bde6de8f987893f558e8c68e3e4ecd082",
-    "src/commands.ts": "6da8339aa69029cc48471c58edb992bbe8ad59282bb50ae037521071d585402a",
+    "src/commands.ts": "f9b8498fac25364e16402b42674302ef9e24367f004f259be2aa13cedfdcb751",
     "src/consent.ts": "6eada35fa610aa9eab4c556849aea81180766f0f5180a0547de3fbcfb6f5e789",
     "src/credentials.ts": "79c868c081d072c883fe0e45b16368c100d6d3946e25363407b7bdf246bdaa4c",
     "src/docs-tool.ts": "819d73a141eb487a781b92a3cfdb7be06432db8ba44eaf02f17f8fecc82bd071",
@@ -74,6 +74,7 @@
     "test/provider-lock.test.ts": "a65ee47f9c782ca649c08eb9021e13690bcfb3042f0f0276d9ea471553e7d285",
     "test/real-spawn.test.ts": "2296d20bc50b037bcf6562d227a2b80c9e7e62f1d8173506e610878712445523",
     "test/resume-line.test.ts": "0e6a2a18cc2da7665c9bd9a8efa1b1c7ba7635b48fd440be8aa80bfaca030479",
+    "test/reverse-engineer-command.test.ts": "b84e6c704fd872a3a832bf73f34b161f324abe196d9c1e3548eb9c86a7e1ced5",
     "test/self-update.test.ts": "d87d8d8c5e83de593bf5dbd99eecaf9a185446b8ba4242caebc29e0913925c76",
     "test/todo-tool.test.ts": "fef87b8e44efc96b14e624a253e38aa18677e2aca35400fadc715eaf1ffbf220",
     "test/todo-view.test.ts": "7dcbfbf9fce69aad0b6371ebe8979c1dec4c0001f463a6023ef913c5573307a4",
@@ -104,7 +105,7 @@
     "skills/long-jobs/SKILL.md": "8b0c5f292397a95e242726db7d7963b3a63392924771bf6049da68fb82167b9e",
     "test/fixtures/stub-mcp-server.mjs": "c82dc54cd56b50761d6163dc0c1f1212e2bda86787a42a9510063951d8c35d75",
     "README.md": "e66e5ce3b75dd78a91573a93e09752cb88eee449426728b9967ad72b2d515408",
-    "CHANGELOG.md": "74ea8efa81465a8f2e710ff1bc01670fcb7e398f3dfc2dc842a89f3ddbe64a0a",
-    "package.json": "1044b30e2768e46867b9afb01604ba6953a8735000e44e47e71c5a6bf12f1855"
+    "CHANGELOG.md": "2e2ffea46929ebc34b1ab3e71d29789c99d5ccfe7a123a3d76519e66ae77ba9a",
+    "package.json": "a947862159b3ba162330476779022341815887bf4dd2186846b07a056c79556d"
   }
 }

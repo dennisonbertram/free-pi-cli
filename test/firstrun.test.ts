@@ -7,6 +7,7 @@ import { DEFAULT_BASE_URL, resolveBaseUrl } from "../src/env";
 import { createSessionManager } from "../src/pi-launch";
 import { buildProviderConfig, MODEL_ID } from "../src/provider";
 import { CLI_VERSION } from "../src/version";
+import { CONSENT_VERSION, REPROMPT_CONSENT_TEXT } from "../src/consent";
 import { run, type RunDeps } from "../src/run";
 import { pollForToken, startDeviceFlow } from "../src/auth-flow";
 import { INTRO_TEXT, introSkipped, showIntro } from "../src/onboarding";
@@ -19,6 +20,10 @@ interface StubOptions {
   /** One entry per /auth/token poll; last entry repeats once exhausted. */
   tokenSequence?: Array<"pending" | "issued">;
   meStatus?: number;
+  /** consent_version /me reports; omitted = field absent (old server). */
+  meConsentVersion?: string | null;
+  /** Status POST /me/consent answers with (default 200). */
+  consentPostStatus?: number;
 }
 
 interface StubServer {
@@ -57,7 +62,16 @@ function startStub(opts: StubOptions = {}): StubServer {
       }
       if (req.method === "GET" && url.pathname === "/me") {
         if ((opts.meStatus ?? 200) === 401) return new Response(null, { status: 401 });
-        return Response.json({ user_id: "u1", handle: "octocat", remaining_usd_today: 5 });
+        return Response.json({
+          user_id: "u1",
+          handle: "octocat",
+          remaining_usd_today: 5,
+          ...(opts.meConsentVersion !== undefined ? { consent_version: opts.meConsentVersion } : {}),
+        });
+      }
+      if (req.method === "POST" && url.pathname === "/me/consent") {
+        if (opts.consentPostStatus) return new Response(null, { status: opts.consentPostStatus });
+        return Response.json({ ok: true });
       }
       return new Response("not found", { status: 404 });
     },
@@ -592,6 +606,112 @@ describe("401 handling", () => {
     expect(launchedJwt).toBe(ISSUED_TOKEN);
     expect(launchedJwt).not.toBe("stale-jwt");
     stub.stop();
+  });
+});
+
+describe("consent re-prompt for existing users", () => {
+  async function runWith(
+    meConsentVersion: string | null | undefined,
+    answer: boolean,
+    consentPostStatus?: number,
+  ) {
+    const stub = startStub({ meConsentVersion, consentPostStatus });
+    const promptTexts: Array<string | undefined> = [];
+    let versionChecks = 0;
+    let selfUpdates = 0;
+    let launchedJwt: string | undefined;
+    const dir = tempDir();
+    const credentialsPath = join(dir, "credentials.json");
+    await saveJwt(credentialsPath, "good-jwt");
+    let prompted = 0;
+    let launched = false;
+    const logs: string[] = [];
+    const code = await run(
+      baseDeps({
+        baseUrl: stub.url,
+        agentDir: dir,
+        credentialsPath,
+        promptConsent: async (text) => {
+          prompted++;
+          promptTexts.push(text);
+          return answer;
+        },
+        launchPi: async (o) => {
+          launched = true;
+          launchedJwt = o.jwt;
+        },
+        checkClientVersion: async () => {
+          versionChecks++;
+          return { action: "ok" };
+        },
+        maybeSelfUpdate: async () => {
+          selfUpdates++;
+          return "blocked";
+        },
+        log: (m) => logs.push(m),
+      }),
+    );
+    stub.stop();
+    const posted = stub.requests.some((r) => r.method === "POST" && r.path === "/me/consent");
+    return { code, prompted, launched, posted, logs, promptTexts, versionChecks, selfUpdates, launchedJwt };
+  }
+
+  test("outdated version + accept -> POST /me/consent, session continues", async () => {
+    const r = await runWith("1", true);
+    expect(r.prompted).toBe(1);
+    expect(r.posted).toBe(true);
+    expect(r.code).toBe(0);
+    expect(r.launched).toBe(true);
+  });
+
+  test("null version (never recorded) is treated as outdated", async () => {
+    const r = await runWith(null, true);
+    expect(r.prompted).toBe(1);
+    expect(r.posted).toBe(true);
+  });
+
+  test("outdated version + decline -> same decline exit, no POST, pi not launched", async () => {
+    const r = await runWith("1", false);
+    expect(r.code).toBe(1);
+    expect(r.logs).toContain("Declined. free-pi needs you to accept the updated terms to continue; you will be asked again next time.");
+    expect(r.posted).toBe(false);
+    expect(r.launched).toBe(false);
+    expect(r.versionChecks).toBe(0);
+    expect(r.selfUpdates).toBe(0);
+  });
+
+  test("re-prompt passes the re-prompt text variant", async () => {
+    const r = await runWith("1", true);
+    expect(r.promptTexts).toEqual([REPROMPT_CONSENT_TEXT]);
+    expect(REPROMPT_CONSENT_TEXT).not.toContain("nothing is sent to the free-pi server");
+    expect(REPROMPT_CONSENT_TEXT).toContain("you will be asked again next time");
+  });
+
+  test("401 from POST /me/consent clears the JWT and re-enters login (not a launch with a dead token)", async () => {
+    const r = await runWith("1", true, 401);
+    expect(r.prompted).toBe(2); // re-prompt, then the first-run prompt
+    expect(r.promptTexts[1]).toBeUndefined();
+    expect(r.launchedJwt).toBe(ISSUED_TOKEN);
+  });
+
+  test("5xx from POST /me/consent is ignored and the session continues", async () => {
+    const r = await runWith("1", true, 503);
+    expect(r.prompted).toBe(1);
+    expect(r.code).toBe(0);
+    expect(r.launched).toBe(true);
+  });
+
+  test("matching version -> no prompt", async () => {
+    const r = await runWith(CONSENT_VERSION, false);
+    expect(r.prompted).toBe(0);
+    expect(r.code).toBe(0);
+    expect(r.posted).toBe(false);
+  });
+
+  test("field missing (old server) -> no prompt", async () => {
+    const r = await runWith(undefined, false);
+    expect(r.prompted).toBe(0);
+    expect(r.code).toBe(0);
   });
 });
 

@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.3",
+    highlights: [
+      "The ad banner now refreshes while you work, at most once a minute.",
+      "If our terms have changed since you signed up, you'll be asked to review and accept them.",
+    ],
+  },
+  {
     version: "0.4.2",
     highlights: ["Credits now sit on the right of the footer, under the model name."],
   },

@@ -42,3 +42,9 @@ export const CONSENT_PROMPT = "Accept? [y/N] ";
 export function parseConsentAnswer(answer: string): boolean {
   return /^\s*y(es)?\s*$/i.test(answer);
 }
+
+/** Consent screen for an already-signed-in user: only the last line differs. */
+export const REPROMPT_CONSENT_TEXT = CONSENT_TEXT.replace(
+  "Decline and nothing is sent to the free-pi server.",
+  "Decline and free-pi exits; you will be asked again next time.",
+);

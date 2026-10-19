@@ -116,10 +116,29 @@ export async function pollForToken(
   }
 }
 
-/** GET /me with the stored JWT. Throws UnauthorizedError on 401; any other response is a no-op. */
-export async function checkToken(baseUrl: string, jwt: string): Promise<void> {
+/**
+ * GET /me with the stored JWT. Throws UnauthorizedError on 401. Otherwise
+ * returns the user's server-side consent_version (null = never recorded), or
+ * undefined when the response has no such field (old server, 5xx, bad body).
+ */
+export async function checkToken(baseUrl: string, jwt: string): Promise<string | null | undefined> {
   const res = await fetch(new URL("/me", baseUrl), {
     headers: { authorization: `Bearer ${jwt}` },
   });
   if (res.status === 401) throw new UnauthorizedError();
+  if (!res.ok) return undefined;
+  const body = (await res.json().catch(() => undefined)) as { consent_version?: unknown } | undefined;
+  const v = body?.consent_version;
+  return typeof v === "string" || v === null ? v : undefined;
+}
+
+/** POST /me/consent: records that an existing user accepted `consentVersion`. */
+export async function submitUserConsent(baseUrl: string, jwt: string, consentVersion: string): Promise<void> {
+  const res = await fetch(new URL("/me/consent", baseUrl), {
+    method: "POST",
+    headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+    body: JSON.stringify({ consent_version: consentVersion }),
+  });
+  if (res.status === 401) throw new UnauthorizedError();
+  if (!res.ok) throw new Error(`consent submission failed: HTTP ${res.status}`);
 }

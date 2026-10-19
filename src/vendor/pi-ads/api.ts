@@ -15,7 +15,8 @@ export interface AdsDeps {
 // "Never block the chat turn" needs a clock, not just a catch: a hung socket
 // resolves neither way. Every caller below already maps a thrown error to
 // `undefined`, so a timeout abort lands on the same path as any other failure.
-const REQUEST_TIMEOUT_MS = 3_000;
+// Above the server's 2.5 s Gravity wait, so a Gravity timeout still returns our own ad in time.
+const REQUEST_TIMEOUT_MS = 5_000;
 
 async function authedFetch(deps: AdsDeps, path: string, init?: RequestInit): Promise<Response> {
   const token = await deps.getToken();

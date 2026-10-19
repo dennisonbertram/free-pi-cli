@@ -1,5 +1,6 @@
-// R4/R6: persistent ad banner above the editor. Refreshed on session start
-// and every 10 minutes (index.ts owns the interval). Empty slot (204) or a
+// R4/R6: persistent ad banner above the editor. Refreshed on session start,
+// on turn_end (at most once a minute), and every 10 minutes while idle
+// (index.ts owns the cadence). Empty slot (204) or a
 // fetch failure both clear the widget outright — never a stale or half-drawn
 // frame, never anything that blocks the chat turn.
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -15,6 +16,8 @@ export interface BannerRendererOptions {
    * Called with the ad's click_url after a successful fetch, and with
    * `undefined` when no ad is shown (204 or fetch failure). */
   onBannerAd?: (clickUrl: string | undefined) => void;
+  /** Checked after the fetch resolves: false (session shut down) skips every side effect. */
+  isActive?: () => boolean;
 }
 
 export interface BannerRenderer {
@@ -35,6 +38,7 @@ export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRe
   return {
     async render(deps, ctx, config, columnsOverride) {
       const ad = await fetchAdNext(deps, "banner");
+      if (opts.isActive && !opts.isActive()) return;
       if (!ad) {
         ctx.ui.setWidget(BANNER_WIDGET_ID, undefined);
         opts.onBannerAd?.(undefined);

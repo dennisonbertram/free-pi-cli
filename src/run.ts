@@ -1,7 +1,7 @@
-import { checkToken, pollForToken, startDeviceFlow, submitConsent, UnauthorizedError } from "./auth-flow";
+import { checkToken, pollForToken, startDeviceFlow, submitConsent, submitUserConsent, UnauthorizedError } from "./auth-flow";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { clearJwt, loadJwt, saveJwt } from "./credentials";
-import { CONSENT_VERSION } from "./consent";
+import { CONSENT_VERSION, REPROMPT_CONSENT_TEXT } from "./consent";
 import { showIntro } from "./onboarding";
 import type { LaunchOptions } from "./pi-launch";
 import type { SelfUpdateOutcome } from "./self-update";
@@ -14,7 +14,7 @@ export interface RunDeps {
   agentDir: string;
   credentialsPath: string;
   /** Shows the consent screen, returns true on accept. */
-  promptConsent: () => Promise<boolean>;
+  promptConsent: (text?: string) => Promise<boolean>;
   /** Best-effort browser open; must never throw or block. */
   openBrowser: (url: string) => void;
   sleep: (ms: number) => Promise<void>;
@@ -80,7 +80,22 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
 
   if (jwt) {
     try {
-      await checkToken(deps.baseUrl, jwt);
+      const serverConsent = await checkToken(deps.baseUrl, jwt);
+      // Re-consent: undefined = old server that doesn't report it, so skip.
+      // Declining asks again next startup (nothing is remembered locally).
+      if (serverConsent !== undefined && serverConsent !== CONSENT_VERSION) {
+        if (!(await deps.promptConsent(REPROMPT_CONSENT_TEXT))) {
+          deps.log("Declined. free-pi needs you to accept the updated terms to continue; you will be asked again next time.");
+          return 1;
+        }
+        try {
+          await submitUserConsent(deps.baseUrl, jwt, CONSENT_VERSION);
+        } catch (err) {
+          // A dead JWT goes to the outer handler (clear + re-login); anything
+          // else just means it was not recorded and we ask again next startup.
+          if (err instanceof UnauthorizedError) throw err;
+        }
+      }
     } catch (err) {
       if (err instanceof UnauthorizedError) {
         await clearJwt(deps.credentialsPath);

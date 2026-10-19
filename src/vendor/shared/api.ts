@@ -80,6 +80,8 @@ export const MeResponseSchema = z.object({
   tier: AccountTierSchema,
   /** #229: purchased-usage balance in USD (display-only). Additive; old CLIs ignore it. */
   credit_usd: z.number(),
+  /** Consent version the user last accepted; the CLI re-prompts when it differs from its own. Absent on old servers. */
+  consent_version: z.string().nullable().optional(),
   /** #224: server-owned plain-text line for the meter widget; present only when free budget AND credit are both exhausted. Rendered as text, never interpreted. */
   notice: z.string().optional(),
   /** #224: a fresh short-lived buy-page URL (what the /buy-credits tool opens). Never cache it. */

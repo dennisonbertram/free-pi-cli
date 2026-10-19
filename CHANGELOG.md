@@ -5,6 +5,17 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.3] - 2026-10-19
+
+### Changed
+- The ad banner refreshes when the model finishes a step, at most once a minute (the 10-minute
+  refresh remains as an idle fallback). A slow ad fetch never delays the agent.
+- Ad requests wait up to 5 s (was 3 s).
+
+### Added
+- Users whose saved consent is older than the current version see the consent screen at startup.
+  Accepting records it; declining exits, and the screen is shown again next time.
+
 ## [0.4.2] - 2026-10-14
 
 ### Changed

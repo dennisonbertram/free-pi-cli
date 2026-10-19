@@ -23,17 +23,17 @@ export interface ConsentPromptDeps {
  * must be a deliberate interactive act, and run()'s decline path guarantees
  * zero server calls.
  */
-export async function promptConsent(deps: ConsentPromptDeps): Promise<boolean> {
+export async function promptConsent(deps: ConsentPromptDeps, text: string = CONSENT_TEXT): Promise<boolean> {
   if (!deps.stdinIsTTY) {
     deps.log(NON_INTERACTIVE_CONSENT_TEXT);
     return false;
   }
-  deps.log(CONSENT_TEXT);
+  deps.log(text);
   const answer = await deps.askLine(CONSENT_PROMPT);
   return parseConsentAnswer(answer);
 }
 
-export async function promptConsentInteractive(): Promise<boolean> {
+export async function promptConsentInteractive(text?: string): Promise<boolean> {
   return promptConsent({
     stdinIsTTY: process.stdin.isTTY === true,
     log: (message) => console.log(message),
@@ -45,5 +45,5 @@ export async function promptConsentInteractive(): Promise<boolean> {
         rl.close();
       }
     },
-  });
+  }, text);
 }

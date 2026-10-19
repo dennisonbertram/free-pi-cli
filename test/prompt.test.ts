@@ -46,9 +46,9 @@ describe("promptConsent — interactive path unchanged", () => {
   });
 });
 
-describe("CONSENT_VERSION and CONSENT_TEXT (v3: adds third-party ad provider)", () => {
-  test("version is 3", () => {
-    expect(CONSENT_VERSION).toBe("3");
+describe("CONSENT_VERSION and CONSENT_TEXT (v4: adds the Gravity pixel line)", () => {
+  test("version is 4", () => {
+    expect(CONSENT_VERSION).toBe("4");
   });
 
   test("text covers training, sharing/selling, no opt-out, alpha status, and links to the legal pages", () => {

@@ -1,4 +1,5 @@
 import { realpathSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { openBrowser } from "./browser";
 import { HELP_TEXT, parseCliArgs, versionLine } from "./cli-args";
 import { readAutoUpdate } from "./cli-config";
@@ -7,6 +8,7 @@ import { resolveBaseUrl } from "./env";
 import { runLogout } from "./logout";
 import { runFreePiMcp } from "./mcp-command";
 import { getConfigPath, getCredentialsPath, getFreePiAgentDir } from "./paths";
+import { startGravityPixel } from "./gravity-pixel";
 import { launchPi } from "./pi-launch";
 import { promptConsentInteractive } from "./prompt";
 import { createRealSpawn } from "./real-spawn";
@@ -71,6 +73,7 @@ async function main(): Promise<void> {
     launchPi,
     log: (message) => console.log(message),
     checkClientVersion,
+    startGravityPixel: (jwt) => startGravityPixel(jwt, join(dirname(agentDir), "gravity")),
     maybeSelfUpdate: (action, latest) =>
       maybeSelfUpdate(action, latest, {
         env: process.env,

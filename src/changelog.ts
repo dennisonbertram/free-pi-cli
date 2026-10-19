@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.4",
+    highlights: [
+      "Updated terms: you'll be asked to accept them once.",
+      "Some ads now come from Gravity, measured with a small tracker. Turn it off with FREEPI_NO_GRAVITY_PIXEL=1.",
+    ],
+  },
+  {
     version: "0.4.3",
     highlights: [
       "The ad banner now refreshes while you work, at most once a minute.",

@@ -5,6 +5,18 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.4] - 2026-10-19
+
+### Changed
+- Consent version 4: the terms now also say that Gravity keeps a session and visitor ID in
+  `~/.free-pi/gravity` and receives usage events from free-pi. Existing users are asked to accept
+  once.
+- Ads served by Gravity are measured with Gravity's terminal pixel, which starts only after you
+  accept the current terms. Disable it with `FREEPI_NO_GRAVITY_PIXEL=1`.
+- The CLI now fires Gravity's impression pixel itself when a Gravity ad is shown.
+- No other ad is shown beside a Gravity ad (Gravity's publisher rule): free-pi's own banner and
+  inline ads step aside while a Gravity ad is on screen.
+
 ## [0.4.3] - 2026-10-19
 
 ### Changed

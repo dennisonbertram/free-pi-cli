@@ -32,6 +32,12 @@ export interface RunDeps {
    * is unit-tested with zero real npm calls — see self-update.ts.
    */
   maybeSelfUpdate: (action: "notice" | "block", latest: string | undefined) => Promise<SelfUpdateOutcome>;
+  /**
+   * Starts Gravity's pixel in the background and returns the context getter for
+   * the ads extension. Called only once the user has accepted the current
+   * consent version (which discloses it). Must not block; run() swallows throws.
+   */
+  startGravityPixel?: (jwt: string) => (() => string | undefined) | undefined;
 }
 
 /** Runs the full device-flow login (device code -> consent -> poll), stores the JWT. */
@@ -77,17 +83,21 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
   }
 
   let jwt = await loadJwt(deps.credentialsPath);
+  /** True once the user has accepted CONSENT_VERSION (the one that discloses the Gravity pixel). */
+  let consentCurrent = false;
 
   if (jwt) {
     try {
       const serverConsent = await checkToken(deps.baseUrl, jwt);
       // Re-consent: undefined = old server that doesn't report it, so skip.
       // Declining asks again next startup (nothing is remembered locally).
+      consentCurrent = serverConsent === CONSENT_VERSION;
       if (serverConsent !== undefined && serverConsent !== CONSENT_VERSION) {
         if (!(await deps.promptConsent(REPROMPT_CONSENT_TEXT))) {
           deps.log("Declined. free-pi needs you to accept the updated terms to continue; you will be asked again next time.");
           return 1;
         }
+        consentCurrent = true;
         try {
           await submitUserConsent(deps.baseUrl, jwt, CONSENT_VERSION);
         } catch (err) {
@@ -117,6 +127,7 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
     // taking over the screen. Returning users (JWT on disk) skip this branch.
     showIntro(deps.log);
     jwt = await loginFlow(deps);
+    consentCurrent = true;
   }
 
   // #37 R5 (privacy invariant): this must run only here — past the decline
@@ -156,6 +167,15 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
   // guarantee the ad sandbox enforces).
   if (versionCheck.notice) deps.log(versionCheck.notice);
 
+  let getGravityContext: (() => string | undefined) | undefined;
+  if (consentCurrent) {
+    try {
+      getGravityContext = deps.startGravityPixel?.(jwt);
+    } catch {
+      // The pixel is optional; never let it stop startup.
+    }
+  }
+
   const finalSessionId = await deps.launchPi({
     baseUrl: deps.baseUrl,
     jwt,
@@ -164,6 +184,7 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
     model: versionCheck.model,
     models: versionCheck.models,
     updateLatest,
+    getGravityContext,
   });
 
   // First user feedback (2026-08-17): after closing the terminal, users didn't

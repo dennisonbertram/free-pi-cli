@@ -9,6 +9,7 @@ import { loadConfig } from "@freepi/shared";
 import type { AdsDeps } from "./api";
 import { createBannerRenderer } from "./banner";
 import { createInlineRenderer } from "./inline";
+import type { AdScreen } from "./screen";
 import { renderMeter } from "./meter";
 
 export interface CreateAdsExtensionOptions {
@@ -17,6 +18,8 @@ export interface CreateAdsExtensionOptions {
   getToken: () => string | Promise<string>;
   sessionId: string;
   fetchImpl?: typeof fetch;
+  /** Base64url Gravity context for the /ads/next header; undefined result = header omitted. */
+  getGravityContext?: () => string | undefined;
   /** KTD7: mirrors the currently-shown banner ad's click URL to the caller
    * (free-pi-cli's /support command) — undefined when no ad is shown. */
   onBannerAd?: (clickUrl: string | undefined) => void;
@@ -34,6 +37,7 @@ export function createAdsExtension(opts: CreateAdsExtensionOptions): InlineExten
     getToken: opts.getToken,
     sessionId: opts.sessionId,
     fetchImpl: opts.fetchImpl,
+    getGravityContext: opts.getGravityContext,
   };
   const config = loadConfig();
 
@@ -41,8 +45,9 @@ export function createAdsExtension(opts: CreateAdsExtensionOptions): InlineExten
     name: "free-pi-ads",
     factory(pi: ExtensionAPI) {
       let stopped = false;
-      const banner = createBannerRenderer({ onBannerAd: opts.onBannerAd, isActive: () => !stopped });
-      const inline = createInlineRenderer();
+      const screen: AdScreen = {};
+      const banner = createBannerRenderer({ onBannerAd: opts.onBannerAd, isActive: () => !stopped, screen });
+      const inline = createInlineRenderer(screen);
       // Timers are session-scoped resources: started in session_start, torn
       // down in session_shutdown, per pi's own extension guidance (never
       // started from the factory itself).

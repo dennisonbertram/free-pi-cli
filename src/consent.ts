@@ -5,6 +5,9 @@ free-pi — before you start
   * Ad cards render in the terminal UI. Some ads come from a third-party ad
     provider (Gravity), which receives excerpts of your recent conversation
     to pick a relevant ad.
+  * Gravity also keeps a session and visitor ID on your machine (in
+    ~/.free-pi) and receives usage events from free-pi to measure and
+    attribute ads.
   * Your coding sessions (prompts, code, files, and model responses) are saved
     as traces and used to train models. We may share or sell that data to
     third parties. Once you accept, there is no opt-out, except where the law
@@ -24,7 +27,7 @@ and the Privacy Policy (https://freepi.ai/privacy).
 Decline and nothing is sent to the free-pi server.
 `.trim();
 
-export const CONSENT_VERSION = "3";
+export const CONSENT_VERSION = "4";
 
 /**
  * Shown instead of the consent screen when stdin is not a TTY. Consent is a

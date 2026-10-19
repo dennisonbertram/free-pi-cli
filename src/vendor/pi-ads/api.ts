@@ -2,7 +2,7 @@
 // budget fetch failure resolves to `undefined` so the caller can clear the
 // widget and move on — nothing here may block or delay the chat turn (KTD9 /
 // U7 requirement).
-import type { AdNextResponse, AdSlot, MeResponse } from "@freepi/shared";
+import { GRAVITY_CONTEXT_HEADER, type AdNextResponse, type AdSlot, type MeResponse } from "@freepi/shared";
 
 export interface AdsDeps {
   baseUrl: string;
@@ -10,6 +10,8 @@ export interface AdsDeps {
   /** Stable logical session id; omitted by older harness-only callers. */
   sessionId?: string;
   fetchImpl?: typeof fetch;
+  /** Base64url Gravity context (already size-checked); sent on /ads/next only. Undefined = send nothing. */
+  getGravityContext?: () => string | undefined;
 }
 
 // "Never block the chat turn" needs a clock, not just a catch: a hung socket
@@ -33,8 +35,49 @@ async function authedFetch(deps: AdsDeps, path: string, init?: RequestInit): Pro
       ...(deps.sessionId && (path.startsWith("/ads/next") || path === "/ads/impression")
         ? { "x-session-id": deps.sessionId }
         : {}),
+      ...(path.startsWith("/ads/next") ? gravityHeader(deps) : {}),
     },
   });
+}
+
+function gravityHeader(deps: AdsDeps): Record<string, string> {
+  try {
+    const ctx = deps.getGravityContext?.();
+    return ctx ? { [GRAVITY_CONTEXT_HEADER]: ctx } : {};
+  } catch {
+    return {};
+  }
+}
+
+const IMP_TIMEOUT_MS = 3_000;
+
+function isGravityImpUrl(raw: string | undefined): raw is string {
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && /(^|\.)trygravity\.(ai|com)$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fires Gravity's impression pixel from this machine (their requirement: the
+ * impression is measured where the ad is shown). Plain GET with no free-pi
+ * credentials. Fire-and-forget: never awaited, errors swallowed, so it cannot
+ * delay a render. Returns true when the fire was ATTEMPTED (not whether it
+ * succeeded): the caller then tells the server imp_fired, because a lost
+ * impression is acceptable but a double count at Gravity is not. False when
+ * there was nothing to fire (own ad, no imp_url, non-Gravity host).
+ */
+export function fireGravityImpression(deps: AdsDeps, ad: AdNextResponse): boolean {
+  if (ad.source !== "gravity" || !isGravityImpUrl(ad.imp_url)) return false;
+  try {
+    void Promise.resolve((deps.fetchImpl ?? fetch)(ad.imp_url, { method: "GET", signal: AbortSignal.timeout(IMP_TIMEOUT_MS) })).catch(() => {});
+  } catch {
+    // synchronous failure still counts as attempted
+  }
+  return true;
 }
 
 /** GET /ads/next?slot=<slot>. 204 (no active ad) and any failure both resolve to undefined. */
@@ -49,11 +92,11 @@ export async function fetchAdNext(deps: AdsDeps, slot: AdSlot): Promise<AdNextRe
 }
 
 /** POST /ads/impression. Best-effort tracking — failures are swallowed. */
-export async function postImpression(deps: AdsDeps, adId: string, clickToken: string): Promise<void> {
+export async function postImpression(deps: AdsDeps, adId: string, clickToken: string, impFired = false): Promise<void> {
   try {
     await authedFetch(deps, "/ads/impression", {
       method: "POST",
-      body: JSON.stringify({ ad_id: adId, click_token: clickToken }),
+      body: JSON.stringify({ ad_id: adId, click_token: clickToken, ...(impFired ? { imp_fired: true } : {}) }),
     });
   } catch {
     // best-effort; never block chat on tracking failure

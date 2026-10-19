@@ -6,7 +6,8 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { Config } from "@freepi/shared";
 import type { AdsDeps } from "./api";
-import { fetchAdNext, postImpression } from "./api";
+import { fetchAdNext, fireGravityImpression, postImpression } from "./api";
+import type { AdScreen } from "./screen";
 import { renderAdCard, renderPlainAdLine, type ThemeLike } from "./style";
 
 export const BANNER_WIDGET_ID = "freepi-ad";
@@ -18,6 +19,8 @@ export interface BannerRendererOptions {
   onBannerAd?: (clickUrl: string | undefined) => void;
   /** Checked after the fetch resolves: false (session shut down) skips every side effect. */
   isActive?: () => boolean;
+  /** Shared with the inline renderer so no own ad is ever visible beside a Gravity ad. */
+  screen?: AdScreen;
 }
 
 export interface BannerRenderer {
@@ -34,16 +37,35 @@ export interface BannerRenderer {
  */
 export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRenderer {
   let lastPostedToken: string | undefined;
+  const screen = opts.screen ?? {};
 
   return {
     async render(deps, ctx, config, columnsOverride) {
       const ad = await fetchAdNext(deps, "banner");
       if (opts.isActive && !opts.isActive()) return;
       if (!ad) {
+        screen.banner = undefined;
         ctx.ui.setWidget(BANNER_WIDGET_ID, undefined);
         opts.onBannerAd?.(undefined);
         return;
       }
+
+      // Gravity's rule: no other ad (of any source) on screen beside a Gravity ad.
+      // A banner yields to a visible Gravity inline card; a Gravity banner clears any inline card.
+      const isGravity = ad.source === "gravity";
+      if (screen.inline === "gravity") {
+        screen.banner = undefined;
+        ctx.ui.setWidget(BANNER_WIDGET_ID, undefined);
+        opts.onBannerAd?.(undefined);
+        return;
+      }
+      if (isGravity && screen.inline) screen.clearInline?.();
+      screen.banner = isGravity ? "gravity" : "own";
+      screen.clearBanner = () => {
+        screen.banner = undefined;
+        ctx.ui.setWidget(BANNER_WIDGET_ID, undefined);
+        opts.onBannerAd?.(undefined);
+      };
 
       const theme = ctx.ui.theme as ThemeLike;
       const columns = columnsOverride ?? process.stdout.columns ?? 80;
@@ -57,7 +79,8 @@ export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRe
 
       if (lastPostedToken !== ad.click_token) {
         lastPostedToken = ad.click_token;
-        await postImpression(deps, ad.ad_id, ad.click_token);
+        const impFired = fireGravityImpression(deps, ad);
+        await postImpression(deps, ad.ad_id, ad.click_token, impFired);
       }
     },
   };

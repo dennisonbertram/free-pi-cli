@@ -152,12 +152,27 @@ export const AdNextResponseSchema = z.object({
   click_token: z.string(),
   creative: AdCreativeSchema,
   click_url: z.string(),
+  // Who supplied the ad. Optional so older servers still parse. Gravity's
+  // guidelines forbid any other ad on screen beside a Gravity ad, so the
+  // client hides our own ads while one is showing.
+  source: z.enum(["gravity", "own"]).optional(),
+  // Gravity's impression pixel (source "gravity" only). The client fires it
+  // from the user's machine when the ad is actually shown, then reports
+  // imp_fired so the server does not fire it again.
+  imp_url: z.string().optional(),
 });
 export type AdNextResponse = z.infer<typeof AdNextResponseSchema>;
+
+// Request header carrying the client's Gravity context (gravityContext() from
+// @gravity-ai/api: pixel session/visitor ids + device signals), base64url JSON.
+export const GRAVITY_CONTEXT_HEADER = "x-gravity-context";
+export const GRAVITY_CONTEXT_MAX_BYTES = 8192;
 
 export const AdImpressionRequestSchema = z.object({
   ad_id: z.string(),
   click_token: z.string(),
+  // true = the client already fired the Gravity impression pixel itself.
+  imp_fired: z.boolean().optional(),
 });
 export type AdImpressionRequest = z.infer<typeof AdImpressionRequestSchema>;
 

@@ -47,6 +47,8 @@ export interface LaunchOptions {
    * self-update fell back to notifying. Renders the header's update banner —
    * free-pi's replacement for pi's own (suppressed) `pi update` banner. */
   updateLatest?: string;
+  /** Base64url Gravity context for the ads extension's /ads/next header; undefined when the pixel is off or not ready. */
+  getGravityContext?: () => string | undefined;
   /**
    * Whether the current folder's project resources (.pi/mcp.json, .pi/extensions,
    * .pi/settings.json, .agents/skills) may load. launchPi() decides this before
@@ -196,6 +198,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     baseUrl: opts.baseUrl,
     getToken: () => opts.jwt,
     sessionId,
+    getGravityContext: opts.getGravityContext,
     onBannerAd: (u) => {
       advertiserUrl = u;
     },

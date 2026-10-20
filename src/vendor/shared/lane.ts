@@ -58,6 +58,15 @@ export function globalHeadroomOk(
 }
 
 /**
+ * At the wall = free allowance spent AND no credit left. `creditUsd` is the
+ * REMAINING balance (addUsage already debits over-cap spend from it), so it
+ * must not be added to the cap again.
+ */
+export function atDailyWall(spentUsd: string | number, capUsd: string | number, creditUsd: string | number): boolean {
+  return usdToMicros(spentUsd) >= usdToMicros(capUsd) && usdToMicros(creditUsd) <= 0n;
+}
+
+/**
  * Admission + display lane at the daily-cap gate.
  *
  * - still under allowance + credit → standard (admit)
@@ -66,10 +75,7 @@ export function globalHeadroomOk(
  * - over that, fallback exhausted, headroom ok → wait / daily_cap
  */
 export function decideLane(input: LaneInput): LaneDecision {
-  const spent = usdToMicros(input.spentUsd);
-  const credit = usdToMicros(input.creditUsd);
-  const cap = usdToMicros(input.capUsd);
-  if (spent < cap + credit) {
+  if (!atDailyWall(input.spentUsd, input.capUsd, input.creditUsd)) {
     return { lane: "standard", admit: true };
   }
 

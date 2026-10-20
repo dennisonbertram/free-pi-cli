@@ -5,6 +5,13 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.6] - 2026-10-20
+
+### Added
+- Free web search and free documentation lookup: the agent can now search the web (`web_search`)
+  and look up current library docs (`docs_lookup`). Both run on the free-pi server and count
+  toward your daily allowance.
+
 ## [0.4.5] - 2026-10-19
 
 ### Added

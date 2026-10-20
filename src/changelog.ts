@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.6",
+    highlights: [
+      "Free web search and documentation lookup: the agent can now search the web (web_search) and look up current library docs (docs_lookup). Both run on the free-pi server and count toward your daily allowance.",
+    ],
+  },
+  {
     version: "0.4.5",
     highlights: [
       "New /reverse-engineer-anything command: loads REA reverse-engineering tools (apps, binaries, APKs, websites) into the session. For lawful, authorized analysis only.",

@@ -30,6 +30,7 @@ import {
 import { ALLOWED_TOOL_NAMES, buildRuntimeOptions, resolveModelName, type LaunchOptions } from "../src/pi-launch";
 import { MODEL_ID, SAFE_TOOLS } from "../src/provider";
 import { USAGE_TOOL_NAME } from "../src/usage-tool";
+import { DOCS_LOOKUP_TOOL_NAME, WEB_SEARCH_TOOL_NAME } from "../src/web-tools";
 import { BUY_TOOL_NAME } from "../src/buy-tool";
 import { DOCS_TOOL_NAME } from "../src/docs-tool";
 import { TODO_TOOL_NAME } from "../src/todo-tool";
@@ -59,7 +60,7 @@ describe("closed extension list (#28 R20, SB1)", () => {
     // 429); 2026-09-03: to eight with free-pi-header (the startup header,
     // U1/U2); 2026-09-03: to nine with free-pi-docs-tool (the free_pi_docs
     // tool, U2). Any further addition must be a reviewed, deliberate edit —
-    // never accidental.
+    // never accidental. 2026-10-20: to sixteen with free-pi-web-tools (web_search, docs_lookup).
     expect([...opts.extensionNames].sort()).toEqual(
       [
         "free-pi-ads",
@@ -74,6 +75,7 @@ describe("closed extension list (#28 R20, SB1)", () => {
         "free-pi-todo",
         "free-pi-tool-guard",
         "free-pi-usage-tool",
+        "free-pi-web-tools",
         "pi-codemode",
         "pi-mcp",
         "pi-tool-search",
@@ -102,6 +104,8 @@ describe("closed extension list (#28 R20, SB1)", () => {
         USAGE_TOOL_NAME,
         BUY_TOOL_NAME,
         DOCS_TOOL_NAME,
+        WEB_SEARCH_TOOL_NAME,
+        DOCS_LOOKUP_TOOL_NAME,
         TODO_TOOL_NAME,
         "codemode",
         "tool_search",
@@ -153,7 +157,7 @@ describe("closed extension list (#28 R20, SB1)", () => {
   });
 
   test("codemode and tool_search are the only new non-MCP names beyond the 2026-10-13 todo tool", () => {
-    const known = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME, TODO_TOOL_NAME];
+    const known = [...SAFE_TOOLS, USAGE_TOOL_NAME, BUY_TOOL_NAME, DOCS_TOOL_NAME, WEB_SEARCH_TOOL_NAME, DOCS_LOOKUP_TOOL_NAME, TODO_TOOL_NAME];
     expect(ALLOWED_TOOL_NAMES.filter((n) => !known.includes(n)).sort()).toEqual(["codemode", "tool_search"]);
     expect(ALLOWED_TOOL_NAMES.some((n) => n.startsWith("mcp__"))).toBe(false);
   });

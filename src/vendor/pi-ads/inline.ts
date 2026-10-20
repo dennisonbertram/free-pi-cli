@@ -9,12 +9,12 @@ import type { Config } from "@freepi/shared";
 import type { AdsDeps } from "./api";
 import { fetchAdNext, fireGravityImpression, postImpression } from "./api";
 import type { AdScreen } from "./screen";
-import { renderAdCard, renderPlainAdLine, type ThemeLike } from "./style";
+import { adWidget } from "./style";
 
 export const INLINE_WIDGET_ID = "freepi-ad-inline";
 
 export interface InlineRenderer {
-  onTurnEnd(deps: AdsDeps, ctx: ExtensionContext, config: Config, columnsOverride?: number): Promise<void>;
+  onTurnEnd(deps: AdsDeps, ctx: ExtensionContext, config: Config): Promise<void>;
   /** Reset turn count / visibility — called on session_start so a /new or /resume starts cadence fresh. */
   reset(ctx: ExtensionContext): void;
 }
@@ -31,7 +31,7 @@ export function createInlineRenderer(screen: AdScreen = {}): InlineRenderer {
   };
 
   return {
-    async onTurnEnd(deps, ctx, config, columnsOverride) {
+    async onTurnEnd(deps, ctx, config) {
       turnCount += 1;
 
       clearInline(ctx);
@@ -47,14 +47,7 @@ export function createInlineRenderer(screen: AdScreen = {}): InlineRenderer {
       if ((screen as AdScreen).banner === "gravity") return;
       if (isGravity && screen.banner) screen.clearBanner?.();
 
-      const theme = ctx.ui.theme as ThemeLike;
-      const columns = columnsOverride ?? process.stdout.columns ?? 80;
-      const lines =
-        columns >= config.adMinColumns
-          ? renderAdCard(ad.creative, ad.click_url, theme, columns)
-          : [renderPlainAdLine(ad.creative, ad.click_url, theme, columns)];
-
-      ctx.ui.setWidget(INLINE_WIDGET_ID, lines, { placement: "belowEditor" });
+      ctx.ui.setWidget(INLINE_WIDGET_ID, adWidget(ad.creative, ad.click_url, config.adMinColumns), { placement: "belowEditor" });
       inlineVisible = true;
       screen.inline = isGravity ? "gravity" : "own";
       screen.clearInline = () => clearInline(ctx);

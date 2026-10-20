@@ -8,6 +8,7 @@
 // from @earendil-works/pi-coding-agent satisfies this structurally) and an
 // explicit `columns` width instead of reading the terminal directly.
 import { createHash } from "node:crypto";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AdCreative } from "@freepi/shared";
 
 /** Structural subset of pi's `Theme` class actually used for styling. */
@@ -42,15 +43,14 @@ export function sanitizeText(input: string): string {
 // Layout primitives
 // ---------------------------------------------------------------------------
 
-function truncate(text: string, maxWidth: number): string {
-  if (maxWidth <= 0) return "";
-  if (text.length <= maxWidth) return text;
-  if (maxWidth <= 1) return text.slice(0, maxWidth);
-  return `${text.slice(0, maxWidth - 1)}…`;
-}
-
-function pad(text: string, width: number): string {
-  return text.length >= width ? text.slice(0, width) : text + " ".repeat(width - text.length);
+/**
+ * Fit `text` to exactly `width` terminal cells: truncate with "…" when too wide,
+ * pad with spaces when too narrow. Measures cells (CJK and emoji take two),
+ * not JS string length, so a row never overflows the terminal. `text` is
+ * already sanitized, so it carries no escape sequences.
+ */
+function fit(text: string, width: number): string {
+  return truncateToWidth(text, Math.max(0, width), "…", true);
 }
 
 /**
@@ -98,7 +98,7 @@ export function renderAdCard(
   const linkId = createHash("sha256").update(url).digest("hex").slice(0, 12);
 
   const row = (text: string, opts?: { bold?: boolean }): string => {
-    const plain = pad(truncate(text, innerWidth), innerWidth);
+    const plain = fit(text, innerWidth);
     let styled = theme.fg("accent", plain);
     if (opts?.bold) styled = theme.bold(styled);
     return `│ ${styled} │`;
@@ -128,8 +128,34 @@ export function renderPlainAdLine(
   const url = sanitizeText(clickUrl);
   // #61: same as the card — the CTA carries the destination; the raw tracker
   // URL is the OSC-8 target only, never visible text.
-  const plain = truncate(`AD ▚ ${headline} — ${cta}`, Math.max(10, columns - 2));
+  const plain = truncateToWidth(`AD ▚ ${headline} — ${cta}`, Math.max(0, columns - 2), "…");
   return theme.fg("dim", osc8(plain, url));
+}
+
+/** Narrowest render width the framed card fits: 20 inner + 4 frame + 1 margin column. */
+const CARD_MIN_COLUMNS = 25;
+
+/**
+ * pi widget factory for an ad. pi calls `render(width)` with the live terminal
+ * width on every paint, so the card (or the below-`adMinColumns` plain line)
+ * is re-laid-out after a resize instead of keeping the width it had at fetch
+ * time. Lines get one leading space, the same one-column margin pi gives a
+ * string[] widget; the card is already built 2 columns narrower than `width`.
+ */
+export function adWidget(creative: AdCreative, clickUrl: string, adMinColumns: number) {
+  return (_tui: unknown, theme: ThemeLike) => ({
+    // A line wider than `width` makes pi's renderer throw, so never draw the
+    // card where it cannot fit (even if AD_MIN_COLUMNS is set low), and draw
+    // nothing at all when there is no column to draw in.
+    render: (width: number): string[] =>
+      width < 1
+        ? []
+        : (width >= Math.max(adMinColumns, CARD_MIN_COLUMNS)
+            ? renderAdCard(creative, clickUrl, theme, width)
+            : [renderPlainAdLine(creative, clickUrl, theme, width)]
+          ).map((line) => ` ${line}`),
+    invalidate() {},
+  });
 }
 
 // ---------------------------------------------------------------------------

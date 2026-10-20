@@ -32,7 +32,7 @@ describe("createBannerRenderer onBannerAd (KTD7)", () => {
     const calls: Array<string | undefined> = [];
     const fetchImpl = (async () => adResponse("https://api.freepi.ai/c/tok-1")) as unknown as typeof fetch;
     const banner = createBannerRenderer({ onBannerAd: (u) => calls.push(u) });
-    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config, 100);
+    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config);
     expect(calls).toEqual(["https://api.freepi.ai/c/tok-1"]);
   });
 
@@ -40,7 +40,7 @@ describe("createBannerRenderer onBannerAd (KTD7)", () => {
     const calls: Array<string | undefined> = [];
     const fetchImpl = (async () => new Response(null, { status: 204 })) as unknown as typeof fetch;
     const banner = createBannerRenderer({ onBannerAd: (u) => calls.push(u) });
-    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config, 100);
+    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config);
     expect(calls).toEqual([undefined]);
   });
 
@@ -51,17 +51,17 @@ describe("createBannerRenderer onBannerAd (KTD7)", () => {
       status === 200 ? adResponse("https://api.freepi.ai/c/tok-2") : new Response(null, { status: 204 })) as unknown as typeof fetch;
     const banner = createBannerRenderer({ onBannerAd: (u) => (holder = u) });
 
-    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config, 100);
+    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config);
     expect(holder).toBe("https://api.freepi.ai/c/tok-2");
 
     status = 204;
-    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config, 100);
+    await banner.render({ ...deps, fetchImpl }, fakeCtx(), config);
     expect(holder).toBeUndefined();
   });
 
   test("onBannerAd not passed → render still works (option is optional)", async () => {
     const fetchImpl = (async () => adResponse("https://api.freepi.ai/c/tok-3")) as unknown as typeof fetch;
     const banner = createBannerRenderer();
-    await expect(banner.render({ ...deps, fetchImpl }, fakeCtx(), config, 100)).resolves.toBeUndefined();
+    await expect(banner.render({ ...deps, fetchImpl }, fakeCtx(), config)).resolves.toBeUndefined();
   });
 });

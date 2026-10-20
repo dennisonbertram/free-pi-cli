@@ -8,7 +8,7 @@ import type { Config } from "@freepi/shared";
 import type { AdsDeps } from "./api";
 import { fetchAdNext, fireGravityImpression, postImpression } from "./api";
 import type { AdScreen } from "./screen";
-import { renderAdCard, renderPlainAdLine, type ThemeLike } from "./style";
+import { adWidget } from "./style";
 
 export const BANNER_WIDGET_ID = "freepi-ad";
 
@@ -24,8 +24,8 @@ export interface BannerRendererOptions {
 }
 
 export interface BannerRenderer {
-  /** Fetch + render the banner slot. `columnsOverride` is a testing seam; production reads the real terminal width. */
-  render(deps: AdsDeps, ctx: ExtensionContext, config: Config, columnsOverride?: number): Promise<void>;
+  /** Fetch + show the banner slot. The widget lays itself out at the width pi renders it at. */
+  render(deps: AdsDeps, ctx: ExtensionContext, config: Config): Promise<void>;
 }
 
 /**
@@ -40,7 +40,7 @@ export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRe
   const screen = opts.screen ?? {};
 
   return {
-    async render(deps, ctx, config, columnsOverride) {
+    async render(deps, ctx, config) {
       const ad = await fetchAdNext(deps, "banner");
       if (opts.isActive && !opts.isActive()) return;
       if (!ad) {
@@ -67,14 +67,7 @@ export function createBannerRenderer(opts: BannerRendererOptions = {}): BannerRe
         opts.onBannerAd?.(undefined);
       };
 
-      const theme = ctx.ui.theme as ThemeLike;
-      const columns = columnsOverride ?? process.stdout.columns ?? 80;
-      const lines =
-        columns >= config.adMinColumns
-          ? renderAdCard(ad.creative, ad.click_url, theme, columns)
-          : [renderPlainAdLine(ad.creative, ad.click_url, theme, columns)];
-
-      ctx.ui.setWidget(BANNER_WIDGET_ID, lines);
+      ctx.ui.setWidget(BANNER_WIDGET_ID, adWidget(ad.creative, ad.click_url, config.adMinColumns));
       opts.onBannerAd?.(ad.click_url);
 
       if (lastPostedToken !== ad.click_token) {

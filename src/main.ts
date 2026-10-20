@@ -1,4 +1,5 @@
-import { realpathSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { realpathSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { openBrowser } from "./browser";
 import { HELP_TEXT, parseCliArgs, versionLine } from "./cli-args";
@@ -12,6 +13,7 @@ import { startGravityPixel } from "./gravity-pixel";
 import { launchPi } from "./pi-launch";
 import { promptConsentInteractive } from "./prompt";
 import { createRealSpawn } from "./real-spawn";
+import { relaunchViaNpx } from "./relaunch";
 import { run } from "./run";
 import { maybeSelfUpdate } from "./self-update";
 import { checkClientVersion } from "./update-check";
@@ -27,6 +29,14 @@ function resolveCliRealpath(): string {
 }
 
 async function main(): Promise<void> {
+  // Handshake for a parent that relaunched us after a required update: proves
+  // the CLI actually started (see relaunch.ts). Best-effort, never fatal.
+  if (process.env.FREEPI_RELAUNCH_READY) {
+    try {
+      writeFileSync(process.env.FREEPI_RELAUNCH_READY, "");
+    } catch {}
+  }
+
   // Local commands dispatch before run(): none of these contact the server,
   // so the consent/privacy invariants of the run() flow are never in play.
   const command = parseCliArgs(process.argv.slice(2));
@@ -74,6 +84,16 @@ async function main(): Promise<void> {
     log: (message) => console.log(message),
     checkClientVersion,
     startGravityPixel: (jwt) => startGravityPixel(jwt, join(dirname(agentDir), "gravity")),
+    relaunchLatest: (latest) =>
+      relaunchViaNpx(latest, {
+        env: process.env,
+        argv: process.argv.slice(2),
+        platform: process.platform,
+        autoUpdateEnabled: () => readAutoUpdate(getConfigPath()),
+        spawn: (cmd, args, opts) => spawn(cmd, args, opts),
+        proc: process,
+        log: (message) => console.log(message),
+      }),
     maybeSelfUpdate: (action, latest) =>
       maybeSelfUpdate(action, latest, {
         env: process.env,

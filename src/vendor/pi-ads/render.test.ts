@@ -32,6 +32,12 @@ function fakeCtx(): { ctx: ExtensionContext; widgetCalls: WidgetCall[]; statusCa
   return { ctx, widgetCalls, statusCalls };
 }
 
+/** What pi draws for a widget at `width`: ad widgets are factories that render at the live width. */
+function drawAt(content: unknown, width: number): string[] {
+  const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
+  return (content as (tui: unknown, theme: unknown) => { render(w: number): string[] })(undefined, theme).render(width);
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   if (status === 204) return new Response(null, { status: 204 });
   return Response.json(body, { status });
@@ -115,23 +121,23 @@ describe("inline cadence", () => {
     const { ctx, widgetCalls } = fakeCtx();
 
     for (let turn = 1; turn <= 4; turn++) {
-      await inline.onTurnEnd(deps(fetchImpl), ctx, config, 80);
+      await inline.onTurnEnd(deps(fetchImpl), ctx, config);
     }
     expect(widgetCalls.length).toBe(0);
 
-    await inline.onTurnEnd(deps(fetchImpl), ctx, config, 80); // turn 5
+    await inline.onTurnEnd(deps(fetchImpl), ctx, config); // turn 5
     expect(widgetCalls.length).toBe(1);
     expect(widgetCalls[0]?.id).toBe(INLINE_WIDGET_ID);
     expect(widgetCalls[0]?.content).not.toBeUndefined();
 
     for (let turn = 6; turn <= 9; turn++) {
-      await inline.onTurnEnd(deps(fetchImpl), ctx, config, 80);
+      await inline.onTurnEnd(deps(fetchImpl), ctx, config);
     }
     // turn 6 clears the turn-5 card; turns 7-9 are no-ops.
     expect(widgetCalls.length).toBe(2);
     expect(widgetCalls[1]?.content).toBeUndefined();
 
-    await inline.onTurnEnd(deps(fetchImpl), ctx, config, 80); // turn 10
+    await inline.onTurnEnd(deps(fetchImpl), ctx, config); // turn 10
     expect(widgetCalls.length).toBe(3);
     expect(widgetCalls[2]?.content).not.toBeUndefined();
 
@@ -149,7 +155,7 @@ describe("banner: empty slot and fetch failure", () => {
     const banner = createBannerRenderer();
     const { ctx, widgetCalls } = fakeCtx();
 
-    await banner.render(deps(fetchImpl), ctx, config, 80);
+    await banner.render(deps(fetchImpl), ctx, config);
 
     expect(widgetCalls.length).toBe(1);
     expect(widgetCalls[0]?.id).toBe(BANNER_WIDGET_ID);
@@ -163,7 +169,7 @@ describe("banner: empty slot and fetch failure", () => {
     const banner = createBannerRenderer();
     const { ctx, widgetCalls } = fakeCtx();
 
-    await banner.render(deps(fetchImpl), ctx, config, 80);
+    await banner.render(deps(fetchImpl), ctx, config);
 
     expect(widgetCalls.length).toBe(1);
     expect(widgetCalls[0]?.content).toBeUndefined();
@@ -190,8 +196,8 @@ describe("impression tracking", () => {
     const banner = createBannerRenderer();
     const { ctx } = fakeCtx();
 
-    await banner.render(deps(fetchImpl), ctx, config, 80);
-    await banner.render(deps(fetchImpl), ctx, config, 80); // repaint: same ad, same click_token
+    await banner.render(deps(fetchImpl), ctx, config);
+    await banner.render(deps(fetchImpl), ctx, config); // repaint: same ad, same click_token
 
     expect(impressionCalls).toBe(1);
   });
@@ -212,9 +218,9 @@ describe("narrow terminal fallback", () => {
     const banner = createBannerRenderer();
     const { ctx, widgetCalls } = fakeCtx();
 
-    await banner.render(deps(fetchImpl), ctx, config, 40); // < adMinColumns (60)
+    await banner.render(deps(fetchImpl), ctx, config);
 
-    const lines = widgetCalls[0]?.content as string[];
+    const lines = drawAt(widgetCalls[0]?.content, 40); // < adMinColumns (60)
     expect(lines.length).toBe(1);
     expect(lines[0]).not.toContain("┌");
     expect(lines[0]).not.toContain("│");
@@ -230,9 +236,9 @@ describe("narrow terminal fallback", () => {
     const banner = createBannerRenderer();
     const { ctx, widgetCalls } = fakeCtx();
 
-    await banner.render(deps(fetchImpl), ctx, config, 80);
+    await banner.render(deps(fetchImpl), ctx, config);
 
-    const lines = widgetCalls[0]?.content as string[];
+    const lines = drawAt(widgetCalls[0]?.content, 80);
     expect(lines.length).toBeGreaterThan(1);
     expect(lines[0]).toContain("┌");
   });

@@ -5,6 +5,18 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.7] - 2026-10-20
+
+### Changed
+- free-pi now updates itself when a new version is required: it relaunches through
+  `npx --yes free-pi-cli@<latest>` instead of asking you to run `npx free-pi-cli@latest`.
+  Set `FREEPI_NO_AUTO_UPDATE=1` to opt out.
+- The ad box redraws at your terminal's width after a resize, and never overflows with wide
+  characters.
+
+### Notes
+- Global installs (`npm i -g`) still update and ask you to re-run once.
+
 ## [0.4.6] - 2026-10-20
 
 ### Added

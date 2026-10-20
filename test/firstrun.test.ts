@@ -715,6 +715,96 @@ describe("consent re-prompt for existing users", () => {
   });
 });
 
+describe("required-update relaunch wiring in run.ts", () => {
+  const BELOW_MIN_MSG = "free-pi-cli is below the required minimum version; update with: npx free-pi-cli@latest";
+
+  async function runBlocked(opts: {
+    relaunch?: RunDeps["relaunchLatest"];
+    check?: Awaited<ReturnType<RunDeps["checkClientVersion"]>>;
+  }) {
+    const stub = startStub();
+    const dir = tempDir();
+    let piLaunched = false;
+    const logs: string[] = [];
+    const code = await run(
+      baseDeps({
+        baseUrl: stub.url,
+        agentDir: dir,
+        credentialsPath: join(dir, "credentials.json"),
+        launchPi: async () => {
+          piLaunched = true;
+        },
+        checkClientVersion: async () => opts.check ?? { action: "block", latest: "0.9.0" },
+        relaunchLatest: opts.relaunch,
+        log: (m) => logs.push(m),
+      }),
+    );
+    stub.stop();
+    return { code, piLaunched, logs };
+  }
+
+  test("below-min + relaunch ran -> returns the relaunched process's exit code, no pi launch, no fallback message", async () => {
+    let seenLatest: string | undefined;
+    const r = await runBlocked({
+      relaunch: async (latest) => {
+        seenLatest = latest;
+        return 0;
+      },
+    });
+    expect(seenLatest).toBe("0.9.0");
+    expect(r.code).toBe(0);
+    expect(r.piLaunched).toBe(false);
+    expect(r.logs).not.toContain(BELOW_MIN_MSG);
+  });
+
+  test("below-min + relaunched child exits 3 -> run() exits 3", async () => {
+    const r = await runBlocked({ relaunch: async () => 3 });
+    expect(r.code).toBe(3);
+  });
+
+  test("below-min + relaunch declined/failed (undefined) -> today's message and exit 1", async () => {
+    const r = await runBlocked({ relaunch: async () => undefined });
+    expect(r.code).toBe(1);
+    expect(r.piLaunched).toBe(false);
+    expect(r.logs).toContain(BELOW_MIN_MSG);
+  });
+
+  test("optional update (notice) never relaunches", async () => {
+    let relaunched = false;
+    const r = await runBlocked({
+      check: { action: "notice", latest: "0.9.0" },
+      relaunch: async () => {
+        relaunched = true;
+        return 0;
+      },
+    });
+    expect(relaunched).toBe(false);
+    expect(r.piLaunched).toBe(true);
+  });
+
+  test("a declined first-run consent still makes zero server calls and never relaunches", async () => {
+    const stub = startStub();
+    const dir = tempDir();
+    let relaunched = false;
+    const code = await run(
+      baseDeps({
+        baseUrl: stub.url,
+        agentDir: dir,
+        credentialsPath: join(dir, "credentials.json"),
+        promptConsent: async () => false,
+        relaunchLatest: async () => {
+          relaunched = true;
+          return 0;
+        },
+      }),
+    );
+    expect(code).not.toBe(0);
+    expect(relaunched).toBe(false);
+    expect(stub.requests.length).toBe(0);
+    stub.stop();
+  });
+});
+
 describe("trial: server-reported model + notice (run.ts)", () => {
   test("prints the notice once and passes the model to launchPi", async () => {
     const dir = tempDir();

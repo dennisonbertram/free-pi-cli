@@ -151,7 +151,13 @@ describe("sandbox gate (KTD9 / R5) — ad content must never enter model context
 
     // Sanity: the marker really was served and really did reach the UI —
     // rules out a false negative from the stub silently not firing.
-    expect(JSON.stringify(widgetCalls)).toContain(MARKER);
+    // Ad widgets are factories that pi renders at the live width, so render
+    // each one the way pi would before searching for the marker.
+    const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
+    const drawn = (widgetCalls as Array<{ content: unknown }>).map(({ content }) =>
+      typeof content === "function" ? (content as (t: unknown, th: unknown) => { render(w: number): string[] })(undefined, theme).render(100) : content,
+    );
+    expect(JSON.stringify(drawn)).toContain(MARKER);
 
     // The extension never touches the message/session/tool surface.
     const messageSurfaceMethods = [

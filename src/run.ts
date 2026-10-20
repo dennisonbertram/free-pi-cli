@@ -33,6 +33,12 @@ export interface RunDeps {
    */
   maybeSelfUpdate: (action: "notice" | "block", latest: string | undefined) => Promise<SelfUpdateOutcome>;
   /**
+   * Required-update relaunch (see relaunch.ts): re-runs the CLI as the latest
+   * npm version. Resolves to the child's exit code, or undefined when it did
+   * not (or could not) relaunch. Optional; absent = today's manual message.
+   */
+  relaunchLatest?: (latest: string | undefined) => Promise<number | undefined>;
+  /**
    * Starts Gravity's pixel in the background and returns the context getter for
    * the ads extension. Called only once the user has accepted the current
    * consent version (which discloses it). Must not block; run() swallows throws.
@@ -144,6 +150,8 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
     const outcome = await deps.maybeSelfUpdate(versionCheck.action, versionCheck.latest);
     if (outcome === "updated-exit") return 0;
     if (outcome === "blocked") {
+      const relaunched = await deps.relaunchLatest?.(versionCheck.latest);
+      if (relaunched !== undefined) return relaunched;
       deps.log("free-pi-cli is below the required minimum version; update with: npx free-pi-cli@latest");
       return 1;
     }

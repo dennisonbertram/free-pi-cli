@@ -5,6 +5,12 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.10] - 2026-10-21
+
+### Added
+- Generated images now display inline in terminals that support it (iTerm2, Kitty, Ghostty,
+  WezTerm, Warp). Inside tmux and in other terminals you still get the saved file path.
+
 ## [0.4.9] - 2026-10-21
 
 ### Changed

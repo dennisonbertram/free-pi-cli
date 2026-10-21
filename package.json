@@ -1,6 +1,6 @@
 {
   "name": "free-pi-cli",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "Free, ad-supported distribution of the pi coding agent. Inference paid for by ads.",
   "license": "MIT",
   "type": "module",
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.2.0",
+    "@earendil-works/pi-tui": "1.2.0",
     "@gravity-ai/api": "1.2.1"
   },
   "devDependencies": {

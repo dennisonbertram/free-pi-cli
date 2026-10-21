@@ -6,6 +6,7 @@
       "name": "free-pi-cli",
       "dependencies": {
         "@earendil-works/pi-coding-agent": "1.2.0",
+        "@earendil-works/pi-tui": "1.2.0",
         "@gravity-ai/api": "1.2.1",
       },
       "devDependencies": {

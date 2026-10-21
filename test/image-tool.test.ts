@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { resetCapabilitiesCache } from "@earendil-works/pi-tui";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +14,7 @@ type Tool = {
 };
 
 const dirs: string[] = [];
-afterEach(() => { while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }); });
+afterEach(() => { resetCapabilitiesCache(); while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true }); });
 
 function setup(fetchImpl: typeof fetch) {
   const cwd = mkdtempSync(join(tmpdir(), "imgtool-"));
@@ -129,4 +130,103 @@ describe("generate_image", () => {
     const c = setup((async () => { throw Object.assign(new Error("t"), { name: "TimeoutError" }); }) as unknown as typeof fetch);
     expect((await run(c.tool, { prompt: "p" })).content[0]!.text).toContain("120 seconds");
   });
+});
+
+describe("inline image rendering (UI only)", () => {
+  const { setCapabilities } = require("@earendil-works/pi-tui");
+  const { renderImageResult } = require("../src/image-tool");
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const theme = { fg: (_c: string, s: string) => s };
+  function run(images: "kitty" | "iterm2" | null) {
+    const cwd = mkdtempSync(join(tmpdir(), "imgrender-"));
+    dirs.push(cwd);
+    require("node:fs").mkdirSync(join(cwd, "images"));
+    require("node:fs").writeFileSync(join(cwd, "images/a-abcdef.png"), Buffer.from(png, "base64"));
+    setCapabilities({ images, trueColor: true, hyperlinks: false });
+    const res = { content: [{ type: "text", text: "model text" }], details: { ok: true, path: "images/a-abcdef.png" } };
+    return renderImageResult(res, { cwd, showImages: true, state: {} }, theme).render(80).join("\n");
+  }
+  test("iTerm2 and Kitty emit one graphics sequence", () => {
+    expect(run("iterm2").match(/\x1b\]1337;File=/g)?.length).toBe(1);
+    expect(run("kitty").match(/\x1b_G/g)?.length).toBe(1);
+  });
+  test("unsupported terminal shows only the text line", () => {
+    expect(run(null).trimEnd()).toBe("Saved image to images/a-abcdef.png");
+  });
+  test("model content has no image block or base64", async () => {
+    const { tool } = setup((async () => new Response(JSON.stringify({ image_b64: png, media_type: "image/png", cost_usd: "0.01", model: "m" }))) as unknown as typeof fetch);
+    const r = await tool.execute("1", { prompt: "x" }, undefined, undefined, undefined);
+    expect(r.content.every((c) => c.type === "text")).toBe(true);
+    expect(JSON.stringify(r)).not.toContain(png);
+  });
+});
+
+describe("registered renderResult", () => {
+  const { setCapabilities } = require("@earendil-works/pi-tui");
+  const fs = require("node:fs");
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const theme = { fg: (_c: string, s: string) => s };
+  const noop = (async () => ok()) as unknown as typeof fetch;
+  function ctxFor(cwd: string, extra: object = {}) { return { cwd, showImages: true, state: {}, ...extra }; }
+  function render(tool: any, cwd: string, details: unknown, text = "t", extra: object = {}, w = 80) {
+    const ctx = ctxFor(cwd, extra);
+    return tool.renderResult({ content: [{ type: "text", text }], details }, { expanded: false, isPartial: false }, theme, ctx).render(w).map((l: string) => l.trimEnd()) as string[];
+  }
+  function seed(name: string) {
+    const { tool, cwd } = setup(noop);
+    fs.mkdirSync(join(cwd, "images"));
+    fs.writeFileSync(join(cwd, name), Buffer.from(png, "base64"));
+    setCapabilities({ images: "iterm2", trueColor: true, hyperlinks: false });
+    return { tool: tool as any, cwd };
+  }
+  test("is wired and draws the image", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    expect(render(tool, cwd, { ok: true, path: "images/a-abcdef.png" }).join("")).toContain("\x1b]1337;File=");
+  });
+  test("jpg and webp use their mime types", () => {
+    for (const [ext, mime] of [["jpg", "image/jpeg"], ["webp", "image/webp"]]) {
+      const { tool, cwd } = seed(`images/a-abcdef.${ext}`);
+      const out = render(tool, cwd, { ok: true, path: `images/a-abcdef.${ext}` }).join("");
+      expect(out).toContain("\x1b]1337;File=");
+      void mime;
+    }
+  });
+  test("showImages=false gives text only", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    expect(render(tool, cwd, { ok: true, path: "images/a-abcdef.png" }, "t", { showImages: false })).toEqual(["Saved image to images/a-abcdef.png"]);
+  });
+  test("same state reads the file once", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    const ctx = ctxFor(cwd);
+    const res = { content: [{ type: "text", text: "t" }], details: { ok: true, path: "images/a-abcdef.png" } };
+    tool.renderResult(res, {}, theme, ctx).render(80);
+    fs.rmSync(join(cwd, "images/a-abcdef.png"));
+    expect(tool.renderResult(res, {}, theme, ctx).render(80).join("")).toContain("\x1b]1337;File=");
+  });
+  test("deleted file gives text only", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    fs.rmSync(join(cwd, "images/a-abcdef.png"));
+    expect(render(tool, cwd, { ok: true, path: "images/a-abcdef.png" })).toEqual(["Saved image to images/a-abcdef.png"]);
+  });
+  test("traversal and absolute paths are not read", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    fs.writeFileSync(join(cwd, "../secret-abcdef.png"), Buffer.from(png, "base64"));
+    dirs.push(join(cwd, "../secret-abcdef.png"));
+    for (const p of ["../secret-abcdef.png", "images/../../secret-abcdef.png", join(cwd, "images/a-abcdef.png")]) {
+      expect(render(tool, cwd, { ok: true, path: p }).join("")).not.toContain("\x1b]1337");
+    }
+  });
+  test("long error text wraps within the width", () => {
+    const { tool, cwd } = seed("images/a-abcdef.png");
+    const lines = render(tool, cwd, { ok: false }, "word ".repeat(32).trim(), {}, 80);
+    expect(lines.length).toBeGreaterThan(1);
+    expect(Math.max(...lines.map((l) => l.length))).toBeLessThanOrEqual(80);
+  });
+});
+
+test("pi-tui pin satisfies pi-coding-agent's requirement", () => {
+  const cli = JSON.parse(readFileSync(join(import.meta.dir, "../package.json"), "utf8"));
+  const agent = JSON.parse(readFileSync(require.resolve("@earendil-works/pi-coding-agent/package.json", { paths: [join(import.meta.dir, "..")] }), "utf8"));
+  const pin = cli.dependencies["@earendil-works/pi-tui"];
+  expect(Bun.semver.satisfies(pin, agent.dependencies["@earendil-works/pi-tui"])).toBe(true);
 });

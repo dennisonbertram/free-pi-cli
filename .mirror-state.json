@@ -1,13 +1,13 @@
 {
   "note": "Written by scripts/sync-public-cli.ts in the free-pi monorepo. `files` is the sha256 of everything the last sync wrote; the next sync refuses to run if any of it changed here without being ported back into the monorepo. Do not edit by hand.",
-  "source_version": "0.4.9",
+  "source_version": "0.4.10",
   "files": {
     "src/agent-rules.ts": "6bf593b32354f566708ebf9403efd33b170ea01c91dede6ef04ccdf43e26ae66",
     "src/auth-flow.ts": "83a44b69014e4baee2cdfae87243778c075df321b62192e33022b50eb4d27a1e",
     "src/browser.ts": "4319c704b07bf5a635b42629457c246c7675f4445f47475cddbbac8a62eecb51",
     "src/bug-report.ts": "d8a9fcb2bb98733922c95322f3b17eec45d271b5496186caf9b6c593604a963f",
     "src/buy-tool.ts": "b43e073f396307c07e19960a6dcfaacdcac5fb2d52a1d8f7c913ec36df5c862f",
-    "src/changelog.ts": "58556cc581d331d06f15572c0a4809d6f046d6352d2fc3ad1394784e17fa7866",
+    "src/changelog.ts": "7964f5388e3abea7a9d133b31327be476989aec0575e95c0938e92511dc24238",
     "src/cli-args.ts": "af47c06a851066b7f36c66f2150bf631b85c70c2107c80ed12e2cc0e619fc7f6",
     "src/cli-config.ts": "1f64d7d8efe3f20ca0907dacf9b0e67bde6de8f987893f558e8c68e3e4ecd082",
     "src/commands.ts": "f9b8498fac25364e16402b42674302ef9e24367f004f259be2aa13cedfdcb751",
@@ -21,7 +21,7 @@
     "src/fusion.ts": "96007ea69893be632b52c117734a1578f4bf609bcebfd5619b86bea932a12e24",
     "src/gravity-pixel.ts": "4eeba574bbc3ad49c6f20d016e9d1b0cedf9e46513989afee60e49134c296d2f",
     "src/header.ts": "259dc99ebf49d6ac82f4852b66b71dad99788f109c51bcd19924789c26be9e6e",
-    "src/image-tool.ts": "c9c5c4d19b8ae7f23f0e0441752d556aea3521b118d7243c999a674aafc7beeb",
+    "src/image-tool.ts": "a6f9a92f0fa88146e34f96f6718e5027ffb3e64a009d197345bef434dde5e72f",
     "src/index.ts": "b65531c30694e7a7d9a77ab14ef9ad2f74806eb09f417ec2da1a895ab34d7fe3",
     "src/logout.ts": "448ecddeb0d727919e2672f32d0e2f606bbcb2f4a0367c1828d17ba1de741444",
     "src/main.ts": "70f6f3abe224cb9930cb48af166051a121db9176484612e4f9b461d5e821e50b",
@@ -66,7 +66,7 @@
     "test/fusion.test.ts": "b708ee8568e695a680f40f4e4382e47b840a329d51ea96f78167f81960589a9f",
     "test/gravity-pixel.test.ts": "0c983391e796dc5e326f613f5f5de92036fbbd8b46befc2a05ad12567dda1e78",
     "test/header.test.ts": "d55fe233ec9b576870ca70618fc09f7ed45b2ea0b45c7dd69ce6de23aa8586ee",
-    "test/image-tool.test.ts": "a66fd3a66b91b5aa9b0064187cb1350fb0f25b5a46b09d68718ea23cc88380d2",
+    "test/image-tool.test.ts": "1a4a4cd8185a9f9935b8f764b9e8313d5678ff4709d175901a2ac903aee0c79c",
     "test/logout.test.ts": "706a02da10ae14cac841be584662852593fed4462ddcc0eae3d1ac473c7db6ec",
     "test/long-jobs-skill.test.ts": "15c80122f1459149a4b5173454f34dc9f112b959b961fb4a8e100580dd5706e6",
     "test/mcp-command.test.ts": "9562220f327f272ba5f9737b03be9259fd2cc8c72a29f8df0e4ff57cc73036c2",
@@ -113,7 +113,7 @@
     "skills/long-jobs/SKILL.md": "8b0c5f292397a95e242726db7d7963b3a63392924771bf6049da68fb82167b9e",
     "test/fixtures/stub-mcp-server.mjs": "c82dc54cd56b50761d6163dc0c1f1212e2bda86787a42a9510063951d8c35d75",
     "README.md": "e66e5ce3b75dd78a91573a93e09752cb88eee449426728b9967ad72b2d515408",
-    "CHANGELOG.md": "ba25328d29835b26bb8150da7bf9e8532ec6cd71703b0f8d1f7e949098dbf5fa",
-    "package.json": "af95cb25c071e90ea72a11b082c01eec2b23a7904dd2b6ebe50e9e42f2378aa7"
+    "CHANGELOG.md": "300b29b9ac10552d3d3c2d2fe3aeec72bd2d300cdba17ea446400771ef29d427",
+    "package.json": "83b821e5115e2e098b62986442da34ac3e1c22cb686a4afae403b0fff76e8627"
   }
 }

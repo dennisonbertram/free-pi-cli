@@ -5,9 +5,11 @@
 // Errors come back as text, never thrown. cost_usd stays in `details`, out of
 // model context. Outside packages/pi-ads on the same grounds as web-tools.ts.
 import { randomBytes } from "node:crypto";
+import { readFileSync, statSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI, InlineExtension } from "@earendil-works/pi-coding-agent";
+import { getCapabilities, Image, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 export const IMAGE_TOOL_NAME = "generate_image";
@@ -68,6 +70,47 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 40).replace(/-+$/, "") || "image";
 }
 
+const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", webp: "image/webp" };
+// Exactly the names execute() writes: images/<slug>-<6 hex>.<ext>.
+const SAFE_PATH = /^images\/[a-z0-9-]+-[0-9a-f]{6}\.(png|jpg|webp)$/;
+const MAX_CELLS_W = 60;
+const MAX_CELLS_H = 40;
+
+/**
+ * UI-only rendering of a tool result: a short "Saved" line, plus the image
+ * itself when the terminal supports inline images (pi-tui detection: Kitty,
+ * Ghostty, WezTerm, Warp, iTerm2; never under tmux/screen). The bytes are read
+ * back from the saved file, so they never enter `content` (model context) or
+ * the session log. Any failure falls back to the text line alone.
+ */
+export function renderImageResult(
+  res: { content: Array<{ type: string; text?: string }>; details?: unknown },
+  ctx: { cwd: string; showImages: boolean; state: any },
+  theme: { fg: (c: any, s: string) => string },
+) {
+  const d = res.details as { ok?: boolean; path?: string } | undefined;
+  const text = d?.ok && d.path ? `Saved image to ${d.path}` : (res.content.find((c) => c.type === "text")?.text ?? "");
+  const textBlock = new Text(theme.fg("toolOutput", text), 0, 0);
+  let img: Image | undefined;
+  if (d?.ok && d.path && SAFE_PATH.test(d.path) && ctx.showImages && getCapabilities().images) {
+    try {
+      const st = ctx.state as { path?: string; img?: Image };
+      if (st.path !== d.path) {
+        const ext = d.path.split(".").pop() ?? "";
+        const mime = Object.hasOwn(MIME, ext) ? MIME[ext] : undefined;
+        const file = join(ctx.cwd, d.path);
+        st.path = d.path;
+        st.img = mime && statSync(file).size <= MAX_BYTES ? new Image(readFileSync(file).toString("base64"), mime, { fallbackColor: (s) => theme.fg("toolOutput", s) }, { maxWidthCells: MAX_CELLS_W, maxHeightCells: MAX_CELLS_H }) : undefined;
+      }
+      img = st.img;
+    } catch { /* file gone or unreadable: text line only */ }
+  }
+  return {
+    render: (w: number) => (img ? [...textBlock.render(w), "", ...img.render(w)] : textBlock.render(w)),
+    invalidate: () => { textBlock.invalidate(); img?.invalidate(); },
+  };
+}
+
 const done = (text: string, details: unknown) => ({ content: [{ type: "text" as const, text }], details });
 const fail = (text: string) => done(text, { ok: false });
 
@@ -87,6 +130,7 @@ export function createImageToolExtension(opts: CreateImageToolOptions): InlineEx
           aspect_ratio: Type.Optional(Type.Union([Type.Literal("1:1"), Type.Literal("16:9"), Type.Literal("9:16"), Type.Literal("4:3"), Type.Literal("3:2")], { description: "Default 1:1" })),
           name: Type.Optional(Type.String({ maxLength: 60, description: "Short file name hint, e.g. hero-banner; used only for the saved file's name" })),
         }),
+        renderResult: (res, _opts, theme, ctx) => renderImageResult(res, ctx, theme),
         async execute(_id, params, signal) {
           const r = await post(opts, { prompt: params.prompt, ...(params.aspect_ratio ? { aspect_ratio: params.aspect_ratio } : {}) }, signal);
           if (!r.ok) return fail(r.text);

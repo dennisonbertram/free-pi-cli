@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.10",
+    highlights: [
+      "Images you generate now show right in your terminal (iTerm2, Kitty, Ghostty, WezTerm, Warp). Other terminals still get the saved file path.",
+    ],
+  },
+  {
     version: "0.4.9",
     highlights: [
       "🧨 Fusion is now much cheaper: DeepSeek V4 Pro plans and DeepSeek V4 Flash builds, so each Fusion turn uses a small fraction of the allowance it used to. Fusion is also listed first in /model.",

@@ -5,6 +5,18 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.8] - 2026-10-21
+
+### Added
+- `generate_image` tool: the agent can create images (mockups, icons, illustrations) through the
+  free-pi server and saves each one into `images/` in your project. Each image counts toward your
+  daily allowance.
+
+### Changed
+- Limit messages now say when the limit clears and how many credits are left today. On the slow
+  lane, the message explains the hourly limit and points to freepi.ai/extra-credits.
+- A session-conflict message keeps its `/close-other-session` hint.
+
 ## [0.4.7] - 2026-10-20
 
 ### Changed

@@ -17,6 +17,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProviderConfig, MODEL_ID, PROVIDER_NAME, SAFE_TOOLS, type CatalogModel } from "./provider";
 import { createUsageToolExtension, USAGE_TOOL_NAME } from "./usage-tool";
+import { createImageToolExtension, IMAGE_TOOL_NAME } from "./image-tool";
 import { createWebToolsExtension, DOCS_LOOKUP_TOOL_NAME, WEB_SEARCH_TOOL_NAME } from "./web-tools";
 import { createBuyToolExtension, BUY_TOOL_NAME } from "./buy-tool";
 import { createDocsToolExtension, DOCS_TOOL_NAME } from "./docs-tool";
@@ -88,6 +89,7 @@ export const ALLOWED_TOOL_NAMES: readonly string[] = [
   DOCS_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   DOCS_LOOKUP_TOOL_NAME,
+  IMAGE_TOOL_NAME,
   TODO_TOOL_NAME,
   "codemode",
   "tool_search",
@@ -233,6 +235,12 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getToken: () => opts.jwt,
   });
 
+  // generate_image: server-generated, saved under <cwd>/images/, metered like web tools.
+  const imageToolExtension: InlineExtension = createImageToolExtension({
+    baseUrl: opts.baseUrl,
+    getToken: () => opts.jwt,
+  });
+
   // 2026-09-01: one readable, server-owned line when a turn is rejected
   // (read from turn_end's error envelope). See error-notice.ts.
   const errorNoticeExtension: InlineExtension = createErrorNoticeExtension();
@@ -273,7 +281,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   const codemodeExtension: InlineExtension = { name: "pi-codemode", factory: createCodemodeExtension({ models: false }) };
   const toolSearchExtension: InlineExtension = { name: "pi-tool-search", factory: createToolSearchExtension() };
 
-  // Closed, SIXTEEN-item list — SB1's structural test fails if a future edit
+  // Closed, SEVENTEEN-item list — SB1's structural test fails if a future edit
   // adds or drops one. Settings deliberately omit pi packages (`packages: []`,
   // so no subagent extension or registry MCP adapter can be pulled in) and
   // pin `defaultTools` to the built-in tool set plus `todo`. The only MCP
@@ -288,6 +296,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     buyToolExtension,
     docsToolExtension,
     webToolsExtension,
+    imageToolExtension,
     errorNoticeExtension,
     toolGuardExtension,
     commandsExtension,

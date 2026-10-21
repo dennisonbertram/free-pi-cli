@@ -11,6 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.8",
+    highlights: [
+      "The agent can now make images: ask for a mockup, icon or illustration and generate_image saves it into your project's images/ folder. Each image counts toward your daily allowance.",
+      "Clearer limit messages: you now see when a limit clears and how many credits you have left today.",
+    ],
+  },
+  {
     version: "0.4.7",
     highlights: [
       "free-pi now updates itself when a new version is required: no more running npx free-pi-cli@latest.",

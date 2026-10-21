@@ -1,10 +1,32 @@
 import type { InlineExtension, ModelRoute, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
 import { PROVIDER_NAME } from "./provider";
 
+/** Legacy id: still registered so saved settings and sessions resolve, but hidden from the picker. */
 export const FUSION_ID = "fusion";
-export const FUSION_NAME = "Fusion · Argon plans, DeepSeek builds";
-export const FUSION_PLANNER_ID = "gemini-4-argon-flex";
+/** pi's picker rows show the model id (not the name), so the picker entry's id carries the emoji. */
+export const FUSION_PICKER_ID = "🧨 fusion";
+export const FUSION_NAME = "🧨 Fusion · DeepSeek Pro plans, Flash builds";
+const FUSION_FALLBACK_NAME = "🧨 Fusion · Argon plans, DeepSeek builds";
+export const FUSION_PLANNER_ID = "deepseek-v4-pro";
 export const FUSION_EXECUTOR_ID = "deepseek-v4-flash";
+// Used only when the server catalog has no V4 Pro row (older server).
+export const FUSION_FALLBACK_PLANNER_ID = "gemini-4-argon-flex";
+
+export interface FusionIds {
+  planner: string;
+  executor: string;
+}
+
+/**
+ * Pick the Fusion planner/executor: the server's ids when both are in the catalog the
+ * CLI registers, else the built-in defaults, with the planner falling back to Argon Flex
+ * when a server predates the V4 Pro catalog row.
+ */
+export function resolveFusionIds(catalogIds: string[], server?: FusionIds): FusionIds {
+  const has = (id: string) => catalogIds.includes(id);
+  if (server && has(server.planner) && has(server.executor)) return server;
+  return { planner: has(FUSION_PLANNER_ID) ? FUSION_PLANNER_ID : FUSION_FALLBACK_PLANNER_ID, executor: FUSION_EXECUTOR_ID };
+}
 
 export interface FusionState {
   phase: "plan" | "build";
@@ -66,7 +88,7 @@ export function routeFusion(request: FusionRequest, models: FusionModels): Model
     case "retry": {
       if (restartPlan) return route(models.planner, "plan");
       const failed = request.failed;
-      if (!failed || (failed.model.provider === PROVIDER_NAME && failed.model.id === FUSION_PLANNER_ID)) {
+      if (!failed || (failed.model.provider === PROVIDER_NAME && failed.model.id === models.planner?.id)) {
         return route(models.executor, "build");
       }
       return { ...route(failed.model), thinkingLevel: failed.thinkingLevel ?? request.thinkingLevel };
@@ -78,22 +100,26 @@ export function routeFusion(request: FusionRequest, models: FusionModels): Model
   }
 }
 
-export function createFusionExtension(defaultModelId: string): InlineExtension {
+export function createFusionExtension(defaultModelId: string, ids: FusionIds = resolveFusionIds([])): InlineExtension {
+  const name = ids.planner === FUSION_PLANNER_ID && ids.executor === FUSION_EXECUTOR_ID ? FUSION_NAME
+    : ids.planner === FUSION_FALLBACK_PLANNER_ID ? FUSION_FALLBACK_NAME : "🧨 Fusion";
   return {
     name: "free-pi-fusion",
     factory: (pi) => {
-      pi.registerVirtualModel<FusionState>({
-        provider: PROVIDER_NAME,
-        id: FUSION_ID,
-        name: FUSION_NAME,
-        input: ["text"],
-        route: (request, ctx) => routeFusion(request, {
-          planner: ctx.modelRegistry.find(PROVIDER_NAME, FUSION_PLANNER_ID),
-          executor: ctx.modelRegistry.find(PROVIDER_NAME, FUSION_EXECUTOR_ID),
-          // The provider extension registers the first catalog row before Fusion.
-          defaultModel: ctx.modelRegistry.find(PROVIDER_NAME, defaultModelId)!,
-        }),
-      });
+      for (const id of [FUSION_PICKER_ID, FUSION_ID]) {
+        pi.registerVirtualModel<FusionState>({
+          provider: PROVIDER_NAME,
+          id,
+          name,
+          input: ["text"],
+          route: (request, ctx) => routeFusion(request, {
+            planner: ctx.modelRegistry.find(PROVIDER_NAME, ids.planner),
+            executor: ctx.modelRegistry.find(PROVIDER_NAME, ids.executor),
+            // The provider extension registers the first catalog row before Fusion.
+            defaultModel: ctx.modelRegistry.find(PROVIDER_NAME, defaultModelId)!,
+          }),
+        });
+      }
     },
   };
 }

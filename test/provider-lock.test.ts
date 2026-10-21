@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { resolveFreePiScope } from "../src/provider-lock";
-import { FUSION_ID } from "../src/fusion";
+import { FUSION_PICKER_ID as FUSION_ID } from "../src/fusion";
 
 const FREE_PI_MODEL = { provider: "free-pi", id: "deepseek/deepseek-v4-flash" };
 
@@ -22,7 +22,7 @@ describe("resolveFreePiScope", () => {
     const runtime = { getModel: (provider: string, id: string) =>
       provider === "free-pi" && id === FUSION_ID ? fusion as never : finder().getModel(provider, id) };
     expect(resolveFreePiScope(runtime, "free-pi", [FREE_PI_MODEL.id, FUSION_ID], {}))
-      .toEqual([{ model: FREE_PI_MODEL as never }, { model: fusion as never }]);
+      .toEqual([{ model: fusion as never }, { model: FREE_PI_MODEL as never }]);
     expect(resolveFreePiScope(runtime, "free-pi", [FREE_PI_MODEL.id], { FREEPI_KEEP_ENV_PROVIDERS: "1" }))
       .toEqual([]);
   });

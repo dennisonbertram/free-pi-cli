@@ -11,6 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_HIGHLIGHTS: ChangelogEntry[] = [
   {
+    version: "0.4.9",
+    highlights: [
+      "🧨 Fusion is now much cheaper: DeepSeek V4 Pro plans and DeepSeek V4 Flash builds, so each Fusion turn uses a small fraction of the allowance it used to. Fusion is also listed first in /model.",
+    ],
+  },
+  {
     version: "0.4.8",
     highlights: [
       "The agent can now make images: ask for a mockup, icon or illustration and generate_image saves it into your project's images/ folder. Each image counts toward your daily allowance.",

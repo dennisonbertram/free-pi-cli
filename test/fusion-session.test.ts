@@ -10,7 +10,7 @@ import {
 import { buildRuntimeOptions, type LaunchOptions } from "../src/pi-launch";
 import {
   FUSION_EXECUTOR_ID,
-  FUSION_ID,
+  FUSION_PICKER_ID,
   FUSION_NAME,
   FUSION_PLANNER_ID,
 } from "../src/fusion";
@@ -19,7 +19,7 @@ import { resolveFreePiScope } from "../src/provider-lock";
 
 const CATALOG_MODELS = [
   { id: FUSION_EXECUTOR_ID, name: "DeepSeek V4 Flash" },
-  { id: FUSION_PLANNER_ID, name: "Gemini 4 Argon Flex" },
+  { id: FUSION_PLANNER_ID, name: "DeepSeek V4 Pro" },
 ];
 
 function tempDir(prefix: string): string {
@@ -110,7 +110,7 @@ async function createFusionSession(baseUrl: string, cwd: string, sessionId: stri
     PROVIDER_NAME,
     CATALOG_MODELS.map((model) => model.id),
   );
-  const fusionModel = services.modelRuntime.getModel(PROVIDER_NAME, FUSION_ID);
+  const fusionModel = services.modelRuntime.getModel(PROVIDER_NAME, FUSION_PICKER_ID);
   if (!fusionModel) throw new Error("Fusion was not registered in the production model runtime");
   const { session } = await createAgentSessionFromServices({
     services,
@@ -118,6 +118,10 @@ async function createFusionSession(baseUrl: string, cwd: string, sessionId: stri
     tools: [...tools],
     scopedModels,
   });
+  // Old saved settings/sessions name the legacy id; it must still resolve (but stay out of the picker).
+  expect(services.modelRuntime.getModel(PROVIDER_NAME, "fusion")).toBeDefined();
+  expect(scopedModels.map(({ model }) => model.id)[0]).toBe(FUSION_PICKER_ID);
+  expect(scopedModels.some(({ model }) => model.id === "fusion")).toBe(false);
   return { session, fusionModel, scopedModels };
 }
 
@@ -164,10 +168,10 @@ describe("Fusion production session routing", () => {
         "session-fusion-routing",
       );
       disposeSession = () => session.dispose();
-      expect(scopedModels.filter(({ model }) => model.id === FUSION_ID)).toHaveLength(1);
+      expect(scopedModels.filter(({ model }) => model.id === FUSION_PICKER_ID)).toHaveLength(1);
       expect(fusionModel.name).toBe(FUSION_NAME);
       await session.setModel(fusionModel);
-      expect(session.model?.id).toBe(FUSION_ID);
+      expect(session.model?.id).toBe(FUSION_PICKER_ID);
 
       await session.prompt("Write the requested file with the write tool, then finish.");
       await session.prompt("Give me one brief follow-up.");
@@ -182,7 +186,7 @@ describe("Fusion production session routing", () => {
       expect(
         session.state.messages.flatMap((message) => message.role === "assistant" ? [message.model] : []),
       ).toEqual([FUSION_PLANNER_ID, FUSION_EXECUTOR_ID, FUSION_PLANNER_ID]);
-      expect(session.model?.id).toBe(FUSION_ID);
+      expect(session.model?.id).toBe(FUSION_PICKER_ID);
       expect(maxOpenStreams).toBe(1);
       expect(openStreams).toBe(0);
     } finally {
@@ -257,7 +261,7 @@ describe("Fusion production session routing", () => {
       expect(
         session.state.messages.flatMap((message) => message.role === "assistant" ? [message.model] : []),
       ).toEqual([FUSION_EXECUTOR_ID]);
-      expect(session.model?.id).toBe(FUSION_ID);
+      expect(session.model?.id).toBe(FUSION_PICKER_ID);
       expect(maxOpenStreams).toBe(1);
       expect(openStreams).toBe(0);
     } finally {

@@ -31,7 +31,7 @@ import { installFooterRightAlign } from "./footer-align";
 import { createFreePiCommandsExtension } from "./commands";
 import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
-import { createFusionExtension } from "./fusion";
+import { createFusionExtension, resolveFusionIds } from "./fusion";
 import { patchResumeLine } from "./resume-line";
 import { decideProjectTrustInteractive, projectTrustForCwd } from "./project-trust";
 
@@ -45,6 +45,8 @@ export interface LaunchOptions {
   /** #140: the selectable model catalog from /client-version. When present the
    * picker offers all of them; empty/absent falls back to the single `model`. */
   models?: CatalogModel[];
+  /** Server-chosen Fusion planner/executor ids (from /client-version). */
+  fusion?: { planner: string; executor: string };
   /** A newer free-pi-cli version, when /client-version reported one and the
    * self-update fell back to notifying. Renders the header's update banner —
    * free-pi's replacement for pi's own (suppressed) `pi update` banner. */
@@ -290,7 +292,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   // MCP tools through codemode scripts (every call still passes the guard).
   const extensionFactories = [
     providerExtension,
-    createFusionExtension(models[0]!.id),
+    createFusionExtension(models[0]!.id, resolveFusionIds(models.map((m) => m.id), opts.fusion)),
     adsExtension,
     usageToolExtension,
     buyToolExtension,

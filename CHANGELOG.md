@@ -5,6 +5,15 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [0.4.9] - 2026-10-21
+
+### Changed
+- 🧨 Fusion is now much cheaper: DeepSeek V4 Pro plans and DeepSeek V4 Flash builds, so each Fusion
+  turn uses a small fraction of the allowance it used to. The server now chooses the two models
+  (`fusion` in `/client-version`); an older server without DeepSeek V4 Pro keeps the previous
+  Argon plans, DeepSeek builds pairing.
+- Fusion is listed first in the `/model` picker. The default model at startup is unchanged.
+
 ## [0.4.8] - 2026-10-21
 
 ### Added

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ModelRoute, ModelRouteRequest } from "@earendil-works/pi-coding-agent";
-import { FUSION_EXECUTOR_ID, FUSION_PLANNER_ID, routeFusion, type FusionState } from "../src/fusion";
+import { FUSION_EXECUTOR_ID, FUSION_NAME, FUSION_PLANNER_ID, resolveFusionIds, routeFusion, type FusionState } from "../src/fusion";
 import { PROVIDER_NAME } from "../src/provider";
 
 function model(id: string): ModelRoute["model"] {
@@ -112,5 +112,23 @@ describe("Fusion routing", () => {
     expect(routeFusion(request({ state: building }), models).model).toBe(executor);
     expect(routeFusion(request({ state: planning }), models).model).toBe(planner);
     expect(planning.phase).toBe("plan");
+  });
+});
+
+describe("Fusion model selection", () => {
+  const server = { planner: "srv-plan", executor: "srv-exec" };
+  test("uses the server ids when both are in the catalog", () => {
+    expect(resolveFusionIds(["a", "srv-plan", "srv-exec"], server)).toEqual(server);
+  });
+  test("ignores server ids missing from the catalog and uses the defaults", () => {
+    expect(resolveFusionIds([FUSION_PLANNER_ID, FUSION_EXECUTOR_ID], server))
+      .toEqual({ planner: FUSION_PLANNER_ID, executor: FUSION_EXECUTOR_ID });
+  });
+  test("falls back to Argon Flex when the catalog has no V4 Pro", () => {
+    expect(resolveFusionIds([FUSION_EXECUTOR_ID, "gemini-4-argon-flex"]))
+      .toEqual({ planner: "gemini-4-argon-flex", executor: FUSION_EXECUTOR_ID });
+  });
+  test("picker name starts with the emoji", () => {
+    expect(FUSION_NAME).toBe("🧨 Fusion · DeepSeek Pro plans, Flash builds");
   });
 });

@@ -191,6 +191,7 @@ export async function run(deps: RunDeps, argv: readonly string[] = process.argv)
     session: sessionArg.session,
     model: versionCheck.model,
     models: versionCheck.models,
+    fusion: versionCheck.fusion,
     updateLatest,
     getGravityContext,
   });

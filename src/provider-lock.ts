@@ -1,5 +1,5 @@
 import type { ScopedModel } from "@earendil-works/pi-coding-agent";
-import { FUSION_ID } from "./fusion";
+import { FUSION_PICKER_ID } from "./fusion";
 
 // Model-picker lock. pi shows every provider whose auth is configured — and it
 // auto-discovers a *builtin* provider (openrouter, huggingface, openai,
@@ -24,7 +24,7 @@ interface ModelFinder {
 
 /**
  * The `scopedModels` to hand `createAgentSessionFromServices`: only the free-pi
- * catalog models (#140) and Fusion, so the picker shows nothing the
+ * catalog models (#140) and Fusion (listed first), so the picker shows nothing the
  * user's env leaks. Empty (no scope → every provider shows) when
  * FREEPI_KEEP_ENV_PROVIDERS is set, or if none of the ids are registered yet
  * (fail open rather than a picker with zero models).
@@ -37,7 +37,7 @@ export function resolveFreePiScope(
 ): ScopedModel[] {
   if (env.FREEPI_KEEP_ENV_PROVIDERS) return [];
   const scoped: ScopedModel[] = [];
-  for (const id of new Set([...modelIds, FUSION_ID])) {
+  for (const id of new Set([FUSION_PICKER_ID, ...modelIds])) {
     const model = modelRuntime.getModel(providerName, id);
     if (model) scoped.push({ model });
   }

@@ -223,6 +223,8 @@ export const ClientVersionResponseSchema = z.object({
   // is the picker label. Optional so a plain response still parses — the CLI
   // falls back to the single `model` field.
   models: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  // Server-chosen Fusion models (catalog ids). Optional: old servers omit it.
+  fusion: z.object({ planner: z.string(), executor: z.string() }).optional(),
 });
 export type ClientVersionResponse = z.infer<typeof ClientVersionResponseSchema>;
 

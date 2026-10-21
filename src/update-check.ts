@@ -14,6 +14,8 @@ export interface ClientVersionCheck {
   models?: Array<{ id: string; name: string }>;
   /** Optional one-line startup notice (e.g. a trial data-handling disclosure). */
   notice?: string;
+  /** Server-chosen Fusion planner/executor catalog ids. */
+  fusion?: { planner: string; executor: string };
 }
 
 export async function checkClientVersion(
@@ -28,13 +30,14 @@ export async function checkClientVersion(
     if (!res.ok) return { action: "ok" };
     const parsed = ClientVersionResponseSchema.safeParse(await res.json());
     if (!parsed.success) return { action: "ok" };
-    const { min, latest, model, models, notice } = parsed.data;
+    const { min, latest, model, models, notice, fusion } = parsed.data;
     // Only attach model/models/notice when present, so a plain {min,latest}
     // response still returns exactly {action,...} (keeps the shape minimal).
-    const extra: { model?: string; models?: Array<{ id: string; name: string }>; notice?: string } = {};
+    const extra: { model?: string; models?: Array<{ id: string; name: string }>; notice?: string; fusion?: { planner: string; executor: string } } = {};
     if (model !== undefined) extra.model = model;
     if (models !== undefined) extra.models = models;
     if (notice !== undefined) extra.notice = notice;
+    if (fusion !== undefined) extra.fusion = fusion;
 
     if (compareVersions(cliVersion, min) === -1) return { action: "block", latest, ...extra };
     if (compareVersions(cliVersion, latest) === -1) return { action: "notice", latest, ...extra };

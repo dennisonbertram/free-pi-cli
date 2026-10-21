@@ -27,6 +27,16 @@ export type ErrorCode = (typeof ERROR_CODES)[number];
 export interface ErrorResponse {
   code: ErrorCode;
   message: string;
+  /** Limit kind, same as `code` for quota/rate rejects. Optional so older servers stay parseable. */
+  limit?: string;
+  /** Seconds until this limit clears. Present only when the server knows a clock. */
+  retry_after_seconds?: number;
+  /** ISO instant when this limit clears. CLI formats this in local time for long waits. */
+  clears_at?: string;
+  /** Free-allowance credits still unused today (display-only; the account's real cap). */
+  remaining_credits_today?: number;
+  /** Today's free allowance in display credits (the account's real cap). */
+  allowance_credits?: number;
 }
 
 // HTTP mapping per the plan's error contract (daily_cap/concurrent/context_ceiling/

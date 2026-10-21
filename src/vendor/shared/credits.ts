@@ -64,3 +64,71 @@ export function remainingAllowanceCredits(capUsd: string | number, spentUsd: str
   const frac = (rem % 1_000_000n).toString().padStart(6, "0");
   return usdToCredits(`${whole}.${frac}`);
 }
+
+/** User-facing labels for quota/rate limit codes. Never mention traces, session logging, or training. */
+export const LIMIT_NOTICE_LABELS: Record<string, string> = {
+  hourly_ceiling: "hourly limit",
+  daily_cap: "daily limit",
+  rolling_cap: "rolling limit",
+  global_cap: "service daily limit",
+  queue_wait: "queue wait",
+  concurrent: "one request at a time",
+  concurrent_session: "another session is active",
+};
+
+export interface LimitNoticeFields {
+  limit: string;
+  retry_after_seconds?: number;
+  clears_at?: string;
+  remaining_credits_today: number;
+  allowance_credits?: number;
+  /** "slow" = rejected in the fallback (slow) lane; only set with limit hourly_ceiling. */
+  lane?: "slow";
+  /** The hourly request ceiling that applied, shown in the slow-lane line. */
+  hourly_ceiling?: number;
+}
+
+export const EXTRA_CREDITS_URL = "freepi.ai/extra-credits";
+
+/** Waits at or above this many seconds are shown as a clock time, not minutes. */
+export const LIMIT_NOTICE_LOCAL_TIME_AFTER_SECONDS = 90 * 60;
+
+/**
+ * Plain limit line for the CLI and the 429 body.
+ * Example: "hourly limit, back in 12 min, 4,200 credits left today"
+ * When `localTime` is set and the wait is long, "back at 8:00 PM" uses the
+ * local (or supplied) timezone. Short waits stay in minutes.
+ */
+export function formatLimitNotice(
+  fields: LimitNoticeFields,
+  opts: { now?: Date; timeZone?: string; localTime?: boolean } = {},
+): string {
+  const slow = fields.lane === "slow" && fields.limit === "hourly_ceiling" && fields.hourly_ceiling != null;
+  const label = slow
+    ? `You've used today's free allowance, so you're on the slow lane (${fields.hourly_ceiling!.toLocaleString("en-US")} requests an hour).`
+    : (LIMIT_NOTICE_LABELS[fields.limit] ?? fields.limit.replace(/_/g, " "));
+  const parts = [label];
+  const retry = fields.retry_after_seconds;
+  if (retry != null && retry > 0) {
+    const useClock =
+      Boolean(opts.localTime) &&
+      Boolean(fields.clears_at) &&
+      retry >= LIMIT_NOTICE_LOCAL_TIME_AFTER_SECONDS;
+    if (useClock) {
+      const formatted = new Intl.DateTimeFormat("en-US", {
+        timeZone: opts.timeZone,
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(new Date(fields.clears_at!));
+      parts.push(`back at ${formatted}`);
+    } else {
+      parts.push(`back in ${Math.max(1, Math.ceil(retry / 60))} min`);
+    }
+  }
+  if (slow) {
+    const wait = parts.length > 1 ? ` ${parts[1]![0]!.toUpperCase()}${parts[1]!.slice(1)} \u2014 or get` : " Get";
+    return `${label}${wait} credits at ${EXTRA_CREDITS_URL} to keep going at full speed.`;
+  }
+  parts.push(`${fields.remaining_credits_today.toLocaleString("en-US")} credits left today`);
+  return parts.join(", ");
+}

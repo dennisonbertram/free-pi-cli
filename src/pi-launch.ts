@@ -34,6 +34,7 @@ import { resolveFreePiScope } from "./provider-lock";
 import { createFusionExtension, resolveFusionIds } from "./fusion";
 import { patchResumeLine } from "./resume-line";
 import { decideProjectTrustInteractive, projectTrustForCwd } from "./project-trust";
+import { pinnedSettingsStorage } from "./settings-file";
 
 export interface LaunchOptions {
   baseUrl: string;
@@ -141,14 +142,21 @@ export function resolveModelName(opts: LaunchOptions): string {
 }
 
 /**
- * The in-memory settings, with trust for one folder. `projectTrusted` gates
- * every project resource pi would load from that folder (.pi/mcp.json,
- * .pi/extensions, .pi/settings.json, skills); pi defaults it to true, so it is
- * always passed explicitly.
+ * The settings, with trust for one folder. `projectTrusted` gates every project
+ * resource pi would load from that folder (.pi/mcp.json, .pi/extensions,
+ * .pi/settings.json, skills); pi defaults it to true, so it is always passed
+ * explicitly.
+ *
+ * Backed by pi's own `~/.free-pi/agent/settings.json` (see settings-file.ts)
+ * rather than an in-memory manager: pi's "set as default" — Ctrl+S in the
+ * thinking selector, /model, /theme — persists through SettingsManager.save(),
+ * and in-memory threw those writes away, so the level was back to the default
+ * on the next run. The free-pi pins below are the baseline under the file, so
+ * they still win and the user's own choices survive.
  */
 export function buildSettingsManager(opts: LaunchOptions, models: CatalogModel[], projectTrusted: boolean): SettingsManager {
-  return SettingsManager.inMemory(
-    {
+  return SettingsManager.fromStorage(
+    pinnedSettingsStorage(join(opts.agentDir, "settings.json"), {
       defaultProvider: PROVIDER_NAME,
       // The picker starts on the first catalog model (the server lists the
       // default first); the user switches with /model.
@@ -165,7 +173,7 @@ export function buildSettingsManager(opts: LaunchOptions, models: CatalogModel[]
       // Pi's own install ping to pi.dev/api/report-install (interactive-mode.js)
       // is off for free-pi users; PI_TELEMETRY=0 below enforces it too.
       enableInstallTelemetry: false,
-    },
+    }),
     { projectTrusted },
   );
 }

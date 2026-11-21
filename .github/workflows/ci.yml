@@ -35,8 +35,6 @@ jobs:
 
       - run: bun test
 
-      # The build script's `chmod +x` is posix-only, and dist is built and
-      # published from posix anyway — so the build gate runs everywhere but
-      # Windows, where the test + typecheck gates are the ones that matter.
-      - if: runner.os != 'Windows'
-        run: bun run build
+      # scripts/build.ts is cross-platform (fs.rmSync + Bun.build, chmod only
+      # on posix), so the build gate runs on all three OSes.
+      - run: bun run build

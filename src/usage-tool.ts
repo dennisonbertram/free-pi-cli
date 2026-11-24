@@ -17,12 +17,17 @@
 import type { ExtensionAPI, InlineExtension } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { formatCreditsLeftLine, SLOW_LANE_METER_LINE, type MeStatsResponse } from "@freepi/shared";
+import { BONUS_MODE_STATE_LABEL, readBonusCreditMode, type BonusCreditMode } from "./cli-config";
+import { getConfigPath } from "./paths";
 
 export interface CreateUsageToolOptions {
   baseUrl: string;
   /** Reads the current JWT from the cli's credential store. May be async. */
   getToken: () => string | Promise<string>;
   fetchImpl?: typeof fetch;
+  /** #23: config.json holding spendBonusCredits, so the credit line can state
+   * the mode. Injected in tests; defaults to getConfigPath(). */
+  configPath?: string;
 }
 
 type UsageToolDetails = MeStatsResponse | { ok: false };
@@ -40,7 +45,7 @@ export function percentUsed(spentUsd: number, capUsd: number): number {
   return Math.min(100, Math.max(0, Math.round((spentUsd / capUsd) * 100)));
 }
 
-export function formatStats(stats: MeStatsResponse): string {
+export function formatStats(stats: MeStatsResponse, bonusMode?: BonusCreditMode): string {
   // Founder decision (2026-09-01, same reasoning as the meter's 2026-08-17
   // decision): free usage is never shown as a dollar amount — not the cap, not
   // today's spend, not lifetime spend.
@@ -49,7 +54,12 @@ export function formatStats(stats: MeStatsResponse): string {
   // #credits: purchased balance is shown as whole "credits" (server-owned peg),
   // never a dollar figure, so the $paid -> $granted margin is never visible.
   // Guarded at runtime: an older server omits credit_credits.
-  const credits = (stats as Partial<MeStatsResponse>).credit_credits;
+  // #23: the spendable balance is `bonus_credits` (purchased plus granted).
+  // `credit_credits` is only the purchased part, so it can read 0 while the
+  // user still has granted bonus credits to spend — prefer the former and fall
+  // back to the latter for a server that predates it.
+  const credited = (stats as Partial<MeStatsResponse>).bonus_credits;
+  const credits = typeof credited === "number" ? credited : (stats as Partial<MeStatsResponse>).credit_credits;
   const remaining = (stats as Partial<MeStatsResponse>).remaining_credits_today;
   const allowance = (stats as Partial<MeStatsResponse>).allowance_credits;
   const refillAt = (stats as Partial<MeStatsResponse>).refill_at;
@@ -64,7 +74,13 @@ export function formatStats(stats: MeStatsResponse): string {
     `tier: ${stats.tier}`,
     todayLine,
     ...(lane === "fallback" ? [SLOW_LANE_METER_LINE] : []),
-    ...(typeof credits === "number" ? [`credit: ${credits.toLocaleString("en-US")} credits remaining`] : []),
+    ...(typeof credits === "number"
+      ? [
+          `Bonus credits: ${credits.toLocaleString("en-US")} credits remaining${
+            bonusMode ? ` (state: ${BONUS_MODE_STATE_LABEL[bonusMode]})` : ""
+          }`,
+        ]
+      : []),
     `today tokens: ${stats.prompt_tokens_today} prompt / ${stats.completion_tokens_today} completion`,
     `lifetime: ${stats.lifetime.prompt_tokens} prompt / ${stats.lifetime.completion_tokens} completion tokens`,
     "buy more credits: /buy-credits",
@@ -82,7 +98,10 @@ export async function fetchUsageText(opts: CreateUsageToolOptions): Promise<{ ok
     });
     if (!res.ok) return { ok: false, text: `Could not fetch usage (HTTP ${res.status}).` };
     const stats = (await res.json()) as MeStatsResponse;
-    return { ok: true, text: formatStats(stats), stats };
+    // #23: balance and mode ride on one line, so /usage answers "how much is
+    // left" and "will it be spent without asking" together.
+    const mode = readBonusCreditMode(opts.configPath ?? getConfigPath());
+    return { ok: true, text: formatStats(stats, mode), stats };
   } catch (err) {
     return { ok: false, text: `Could not fetch usage: ${String(err)}` };
   }

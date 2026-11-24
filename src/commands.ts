@@ -9,6 +9,8 @@ import { registerBugAutocomplete } from "./bug-report";
 import { CHANGELOG_HIGHLIGHTS } from "./changelog";
 import { openBrowser } from "./browser";
 import { BUY_NOT_AVAILABLE_TEXT, buyPageText, resolveBuyPage } from "./buy-tool";
+import { readBonusCreditMode, BONUS_MODE_STATE_LABEL, readSpendBonusCredits, writeSpendBonusCredits } from "./cli-config";
+import { getConfigPath } from "./paths";
 import { fetchUsageText } from "./usage-tool";
 
 export interface CreateCommandsOptions {
@@ -27,11 +29,18 @@ export interface CreateCommandsOptions {
   nodeVersion?: string;
   /** Injected in tests; defaults to process.platform. */
   platform?: NodeJS.Platform;
+  /** #23: the config.json /spend-bonus-credits reads and writes. Injected in
+   * tests; defaults to getConfigPath() (paths.ts). */
+  configPath?: string;
 }
 
-/** Minimal shape of the command context we use — just the notify surface. */
+/** Minimal shape of the command context we use — the notify surface, plus the
+ * optional selector /spend-bonus-credits uses to show its two states. */
 export interface NotifyContext {
-  ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+  ui: {
+    notify(message: string, type?: "info" | "warning" | "error"): void;
+    select?(title: string, options: string[]): Promise<string | undefined>;
+  };
 }
 
 // ---- /close-other-session -------------------------------------------------
@@ -179,9 +188,81 @@ export async function openPrivacyPolicy(opts: CreateCommandsOptions, ctx: Notify
   ctx.ui.notify(`Opening the Privacy Policy in your browser: ${PRIVACY_URL}`, "info");
 }
 
+// ---- /spend-bonus-credits -------------------------------------------------
+
+/** Shown when the gate will ask before spending bonus credits (the default). */
+export const BONUS_SPEND_ASK_TEXT = "Bonus credits: ask before using (default)";
+/** Shown when the gate spends bonus credits without asking. */
+export const BONUS_SPEND_AUTO_TEXT = "Bonus credits: use automatically when your free allowance runs out.";
+
+/** The two states, as the no-argument selector lists them. */
+export const BONUS_SPEND_ASK_OPTION = "Ask before using (default)";
+export const BONUS_SPEND_AUTO_OPTION = "Use automatically when my free allowance is gone";
+
+export const BONUS_SPEND_USAGE_TEXT =
+  "Usage: /spend-bonus-credits [on|off] — no argument shows both options. " +
+  "'off' asks before spending bonus credits (default); 'on' spends them automatically once your free allowance is gone.";
+
+/** Explicit arguments, plus the true/false/yes/no words people type anyway. */
+function parseBonusSpendArg(arg: string): boolean | undefined {
+  const value = arg.trim().toLowerCase();
+  if (value === "on" || value === "true" || value === "yes") return true;
+  if (value === "off" || value === "false" || value === "no") return false;
+  return undefined;
+}
+
+/**
+ * #23: toggles or sets whether the bonus-credit gate asks first. The setting
+ * is local state, so this needs no server call and works at the wall. Never
+ * throws; a junk argument changes nothing and prints the one-line hint rather
+ * than guessing. When an explicit value is given the outcome is always
+ * reported, even if it is already the current state — silent no-ops read as
+ * a broken command.
+ *
+ * With no argument it shows BOTH states in a selector instead of flipping
+ * silently, so the available options are discoverable from the command itself.
+ */
+export async function spendBonusCredits(opts: CreateCommandsOptions, ctx: NotifyContext, arg = ""): Promise<void> {
+  const configPath = opts.configPath ?? getConfigPath();
+  const current = readBonusCreditMode(configPath);
+  let value: boolean | undefined;
+
+  if (arg.trim() === "") {
+    if (!ctx.ui.select) {
+      // No dialog surface (RPC/print mode): keep the old behaviour rather than
+      // doing nothing, and still state the mode in the notice.
+      value = current !== "auto";
+    } else {
+      const choice = await ctx.ui.select(
+        `Spend bonus credits — currently: ${BONUS_MODE_STATE_LABEL[current]}`,
+        [BONUS_SPEND_ASK_OPTION, BONUS_SPEND_AUTO_OPTION],
+      );
+      // Dismissed: change nothing, say nothing.
+      if (choice === undefined) return;
+      value = choice === BONUS_SPEND_AUTO_OPTION;
+    }
+  } else {
+    value = parseBonusSpendArg(arg);
+    if (value === undefined) {
+      ctx.ui.notify(BONUS_SPEND_USAGE_TEXT, "info");
+      return;
+    }
+  }
+
+  if (!writeSpendBonusCredits(configPath, value)) {
+    ctx.ui.notify("Couldn't save that setting — check your free-pi config folder.", "error");
+    return;
+  }
+  ctx.ui.notify(value ? BONUS_SPEND_AUTO_TEXT : BONUS_SPEND_ASK_TEXT, "info");
+}
+
 // ---- /usage ---------------------------------------------------------------
 
-/** Same output as the free_pi_usage tool, with no model turn — works at the wall. Never throws. */
+/**
+ * Same output as the free_pi_usage tool, which already includes the
+ * bonus-credit balance and mode line (#23), with no model turn — works at the
+ * wall. Never throws.
+ */
 export async function showUsage(opts: CreateCommandsOptions, ctx: NotifyContext): Promise<void> {
   const r = await fetchUsageText(opts);
   ctx.ui.notify(r.text, r.ok ? "info" : "error");
@@ -258,6 +339,10 @@ export function createFreePiCommandsExtension(opts: CreateCommandsOptions): Inli
       pi.registerCommand("buy-credits", {
         description: "Buy more usage ($5 or $10 packs, card or USDC) — opens the buy page.",
         handler: (_args, ctx) => buyCredits(opts, ctx),
+      });
+      pi.registerCommand("spend-bonus-credits", {
+        description: "Choose whether bonus credits are spent automatically when your free allowance runs out.",
+        handler: async (args, ctx) => spendBonusCredits(opts, ctx, args),
       });
       pi.registerCommand("support", {
         description: "Open today's advertiser in your browser to support free-pi.",

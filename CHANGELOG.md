@@ -5,6 +5,14 @@ All notable changes to `free-pi-cli`. Format based on [Keep a Changelog](https:/
 The short highlights shown in the CLI at startup live in `src/changelog.ts` (bundled into the
 build); this file is the fuller human record.
 
+## [Unreleased]
+
+### Added
+- Bonus credits are now only spent after you agree. When your free daily allowance runs out and
+  you still have bonus credits, free-pi asks before the turn runs. `Not now` sends nothing and puts
+  your draft back. `/spend-bonus-credits` switches between asking (the default) and using bonus
+  credits automatically.
+
 ## [0.4.10] - 2026-10-21
 
 ### Added

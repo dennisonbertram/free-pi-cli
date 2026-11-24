@@ -32,6 +32,13 @@ Note: `free-pi-cli` is the command — **not** `pi`. If you see the built-in
 agent suggest `pi --session …` on exit, use `npx free-pi-cli` instead (each
 run starts a fresh session).
 
+## Bonus credits
+
+Beyond the free daily allowance you can buy credits. They are only spent after
+you agree: when the allowance runs out, free-pi asks before using them, and
+`Not now` sends nothing. `/spend-bonus-credits` switches it to automatic (and
+back).
+
 ## Development
 
 - `FREEPI_BASE_URL` overrides the backend base URL (default

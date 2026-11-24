@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { CHANGELOG_HIGHLIGHTS } from "../src/changelog";
 import {
+  BONUS_SPEND_ASK_OPTION,
+  BONUS_SPEND_ASK_TEXT,
+  BONUS_SPEND_AUTO_OPTION,
+  BONUS_SPEND_AUTO_TEXT,
+  BONUS_SPEND_USAGE_TEXT,
   buyCredits,
   closeOtherSession,
   openAdvertiser,
@@ -10,8 +18,14 @@ import {
   runUpdate,
   showUsage,
   showWhatsNew,
+  spendBonusCredits,
   TERMS_URL,
 } from "../src/commands";
+import { readSpendBonusCredits } from "../src/cli-config";
+
+function tempConfigPath(): string {
+  return join(mkdtempSync(join(tmpdir(), "free-pi-commands-test-")), "config.json");
+}
 
 function fakeFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): typeof fetch {
   return ((url: URL | string, init?: RequestInit) =>
@@ -297,17 +311,105 @@ describe("/usage (showUsage)", () => {
     expect(notes[0]!.msg.split("\n")).toEqual([
       "tier: young",
       "12,400 / 15,000 credits left today · refills 8:00 PM ET",
-      "credit: 50,000 credits remaining",
+      "Bonus credits: 50,000 credits remaining (state: ask before using)",
       "today tokens: 120 prompt / 60 completion",
       "lifetime: 900 prompt / 400 completion tokens",
       "buy more credits: /buy-credits",
     ]);
     expect(notes[0]!.msg).not.toMatch(/\$/);
   });
+
+  test("the balance line states the mode and follows it when set to automatic", async () => {
+    const fetchImpl = fakeFetch(() => Response.json(STATS));
+    const configPath = tempConfigPath();
+    const ask = notifyCtx();
+    await showUsage({ baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl, configPath }, ask.ctx);
+    expect(ask.notes[0]!.msg).toContain("Bonus credits: 50,000 credits remaining (state: ask before using)");
+
+    const set = notifyCtx();
+    await spendBonusCredits({ baseUrl: "https://api.test", getToken: () => "jwt", configPath }, set.ctx, "on");
+    const auto = notifyCtx();
+    await showUsage({ baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl, configPath }, auto.ctx);
+    expect(auto.notes[0]!.msg).toContain("Bonus credits: 50,000 credits remaining (state: use automatically)");
+  });
   test("server error → one error notice, never throws", async () => {
     const { ctx, notes } = notifyCtx();
     await showUsage({ baseUrl: "https://api.test", getToken: () => "jwt", fetchImpl: fakeFetch(() => new Response("x", { status: 503 })) }, ctx);
     expect(notes[0]!.type).toBe("error");
     expect(notes[0]!.msg).toContain("503");
+  });
+});
+
+describe("/spend-bonus-credits (spendBonusCredits, #23)", () => {
+  const base = () => ({ baseUrl: "https://api.test", getToken: () => "jwt" });
+
+  test("no argument toggles false -> true and notifies the new state", () => {
+    const configPath = tempConfigPath();
+    const { ctx, notes } = notifyCtx();
+    spendBonusCredits({ ...base(), configPath }, ctx);
+    expect(readSpendBonusCredits(configPath)).toBe(true);
+    expect(notes).toEqual([{ msg: BONUS_SPEND_AUTO_TEXT, type: "info" }]);
+
+    spendBonusCredits({ ...base(), configPath }, ctx);
+    expect(readSpendBonusCredits(configPath)).toBe(false);
+    expect(notes.at(-1)).toEqual({ msg: BONUS_SPEND_ASK_TEXT, type: "info" });
+  });
+
+  test("on/off (and true/false/yes/no, any case) set explicitly", async () => {
+    const configPath = tempConfigPath();
+    const { ctx, notes } = notifyCtx();
+    for (const on of ["on", "ON", "true", "yes"]) {
+      await spendBonusCredits({ ...base(), configPath }, ctx, on);
+      expect(readSpendBonusCredits(configPath)).toBe(true);
+    }
+    for (const off of ["off", "FALSE", "no"]) {
+      await spendBonusCredits({ ...base(), configPath }, ctx, off);
+      expect(readSpendBonusCredits(configPath)).toBe(false);
+    }
+    expect(notes).toHaveLength(7);
+    expect(notes.every((n) => n.type === "info")).toBe(true);
+  });
+
+  test("no argument with a selector shows both states and applies the chosen one", async () => {
+    const configPath = tempConfigPath();
+    const prompts: Array<{ title: string; options: string[] }> = [];
+    const notes: Array<{ msg: string; type?: string }> = [];
+    const ctx = {
+      ui: {
+        notify: (msg: string, type?: "info" | "warning" | "error") => notes.push({ msg, type }),
+        select: async (title: string, options: string[]) => {
+          prompts.push({ title, options });
+          return BONUS_SPEND_AUTO_OPTION;
+        },
+      },
+    };
+    await spendBonusCredits({ ...base(), configPath }, ctx);
+    // Both states are visible in the command itself — the point of the selector.
+    expect(prompts[0]!.options).toEqual([BONUS_SPEND_ASK_OPTION, BONUS_SPEND_AUTO_OPTION]);
+    expect(prompts[0]!.title).toContain("ask before using");
+    expect(readSpendBonusCredits(configPath)).toBe(true);
+    expect(notes).toEqual([{ msg: BONUS_SPEND_AUTO_TEXT, type: "info" }]);
+  });
+
+  test("a dismissed selector changes nothing", async () => {
+    const configPath = tempConfigPath();
+    const notes: Array<{ msg: string; type?: string }> = [];
+    const ctx = {
+      ui: {
+        notify: (msg: string, type?: "info" | "warning" | "error") => notes.push({ msg, type }),
+        select: async () => undefined,
+      },
+    };
+    await spendBonusCredits({ ...base(), configPath }, ctx);
+    expect(readSpendBonusCredits(configPath)).toBe(false);
+    expect(notes).toHaveLength(0);
+  });
+
+  test("junk argument changes nothing and prints the usage hint", () => {
+    const configPath = tempConfigPath();
+    const { ctx, notes } = notifyCtx();
+    spendBonusCredits({ ...base(), configPath }, ctx, "maybe");
+    expect(readSpendBonusCredits(configPath)).toBe(false);
+    expect(notes).toEqual([{ msg: BONUS_SPEND_USAGE_TEXT, type: "info" }]);
   });
 });

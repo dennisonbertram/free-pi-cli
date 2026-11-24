@@ -105,10 +105,10 @@ describe("createUsageToolExtension", () => {
   });
 
   test("free usage is shown as credits left + refill — never a dollar figure", () => {
-    expect(formatStats({ ...STATS, credit_credits: 50000 }).split("\n")).toEqual([
+    expect(formatStats({ ...STATS, credit_credits: 50000, bonus_credits: 50000 }).split("\n")).toEqual([
       "tier: young",
       "12,400 / 15,000 credits left today · refills 8:00 PM ET",
-      "credit: 50,000 credits remaining",
+      "Bonus credits: 50,000 credits remaining",
       "today tokens: 120 prompt / 60 completion",
       "lifetime: 900 prompt / 400 completion tokens",
       "buy more credits: /buy-credits",
@@ -122,7 +122,22 @@ describe("createUsageToolExtension", () => {
     for (const s of [without, formatStats(STATS)]) {
       expect(s).not.toMatch(/\$/);
     }
-    expect(formatStats(STATS)).toContain("credit: 0 credits remaining");
+    expect(formatStats(STATS)).toContain("Bonus credits: 0 credits remaining");
+  });
+
+  test("shows the spendable bonus balance, not the purchased-only one, and states the mode (#23)", () => {
+    // The real account this was reported from: credit_credits (purchased) is 0
+    // while the user still holds 7,000 granted bonus credits.
+    const stats = { ...STATS, credit_credits: 0, bonus_credits: 7000 };
+    expect(formatStats(stats)).toContain("Bonus credits: 7,000 credits remaining");
+    expect(formatStats(stats, "ask")).toContain("Bonus credits: 7,000 credits remaining (state: ask before using)");
+    expect(formatStats(stats, "auto")).toContain("Bonus credits: 7,000 credits remaining (state: use automatically)");
+    // An older server that predates bonus_credits still gets its purchased balance.
+    const { bonus_credits: _b, ...noBonus } = stats;
+    expect(formatStats(noBonus as MeStatsResponse)).toContain("Bonus credits: 0 credits remaining");
+    expect(formatStats({ ...noBonus, credit_credits: 50000 } as MeStatsResponse)).toContain(
+      "Bonus credits: 50,000 credits remaining",
+    );
   });
 
   test("percentUsed rounds to a whole percent, clamps to 0..100, and treats a zero cap as fully used", () => {

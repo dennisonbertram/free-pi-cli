@@ -29,10 +29,12 @@ import { createToolGuardExtension } from "./tool-guard";
 import { installBugHandler } from "./bug-report";
 import { installFooterRightAlign } from "./footer-align";
 import { createFreePiCommandsExtension } from "./commands";
+import { createBonusCreditGateExtension } from "./bonus-credit-gate";
 import { createHeaderExtension } from "./header";
 import { resolveFreePiScope } from "./provider-lock";
 import { createFusionExtension, resolveFusionIds } from "./fusion";
 import { patchResumeLine } from "./resume-line";
+import { getConfigPath } from "./paths";
 import { decideProjectTrustInteractive, projectTrustForCwd } from "./project-trust";
 
 export interface LaunchOptions {
@@ -264,6 +266,15 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     getAdvertiserUrl: () => advertiserUrl,
   });
 
+  // #23: asks before a turn spends the user's bonus credits, once the free
+  // daily allowance is gone. The mode lives in config.json so a toggle takes
+  // effect without a restart; declining sends nothing.
+  const bonusCreditGateExtension: InlineExtension = createBonusCreditGateExtension({
+    baseUrl: opts.baseUrl,
+    getToken: () => opts.jwt,
+    configPath: getConfigPath(),
+  });
+
   // U1/U2 (2026-09-03): free-pi's own startup header, replacing pi's
   // built-in one (hidden via quietStartup below). KTD1, KTD6.
   const headerExtension: InlineExtension = createHeaderExtension({
@@ -283,13 +294,15 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
   const codemodeExtension: InlineExtension = { name: "pi-codemode", factory: createCodemodeExtension({ models: false }) };
   const toolSearchExtension: InlineExtension = { name: "pi-tool-search", factory: createToolSearchExtension() };
 
-  // Closed, SEVENTEEN-item list — SB1's structural test fails if a future edit
+  // Closed, EIGHTEEN-item list — SB1's structural test fails if a future edit
   // adds or drops one. Settings deliberately omit pi packages (`packages: []`,
   // so no subagent extension or registry MCP adapter can be pulled in) and
   // pin `defaultTools` to the built-in tool set plus `todo`. The only MCP
   // servers that load are the ones the user put in mcp.json; the MCP
   // extension turns `codemode` on when one connects, and the model reaches
   // MCP tools through codemode scripts (every call still passes the guard).
+  // #23 added free-pi-bonus-credits, the input gate that asks before bonus
+  // credits are spent.
   const extensionFactories = [
     providerExtension,
     createFusionExtension(models[0]!.id, resolveFusionIds(models.map((m) => m.id), opts.fusion)),
@@ -302,6 +315,7 @@ export function buildRuntimeOptions(opts: LaunchOptions, sessionId: string): Run
     errorNoticeExtension,
     toolGuardExtension,
     commandsExtension,
+    bonusCreditGateExtension,
     headerExtension,
     todoToolExtension,
     toolAliasesExtension,

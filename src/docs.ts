@@ -28,6 +28,10 @@ One session per account runs at a time. If a previous session is stuck,
 ## Credits
 \`/buy-credits\` opens the buy page in your browser. The free allowance spends
 first. Purchased credits cover use beyond it and do not expire.
+Bonus credits are only spent after you agree: when the free allowance runs
+out, free-pi asks before using them, and \`Not now\` sends nothing.
+\`/spend-bonus-credits\` switches between asking (the default) and using bonus
+credits automatically.
 
 ## Commands
 - \`/usage\` — spend and remaining budget today
@@ -35,6 +39,7 @@ first. Purchased credits cover use beyond it and do not expire.
 - \`/tos\` — open the Terms of Service
 - \`/privacy-policy\` — open the Privacy Policy
 - \`/buy-credits\` — get more usage
+- \`/spend-bonus-credits\` — ask before bonus credits are spent, or use them automatically
 - \`/close-other-session\` — free a stuck session on another machine
 - \`/update\` — get the latest free-pi
 - \`/whats-new\` — what changed in recent releases

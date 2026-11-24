@@ -18,7 +18,12 @@ export function getLastSeenVersionPath(agentDir: string = getFreePiAgentDir()): 
   return join(agentDir, "last-seen-version");
 }
 
-/** #37 U1: the self-update opt-out config file, `~/.free-pi/config.json`. Read-only — never created. */
+/**
+ * #37 U1 / #23: the config file, `~/.free-pi/config.json` — self-update opt-out
+ * (`autoUpdate`) and the bonus-credit mode (`spendBonusCredits`). The CLI now
+ * writes it (/spend-bonus-credits, the gate's "don't ask again"); self-update
+ * still never creates it on its own.
+ */
 export function getConfigPath(): string {
   return join(homedir(), FREE_PI_DIR_NAME, "config.json");
 }

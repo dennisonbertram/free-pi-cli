@@ -54,17 +54,20 @@ describe("closed extension list (#28 R20, SB1)", () => {
     expect(opts.settingsManager.getThemeSetting()).toBe("light/dark");
   });
 
-  test("buildRuntimeOptions registers exactly the seventeen known extensions — no more, no less", () => {
+  test("buildRuntimeOptions registers exactly the eighteen known extensions — no more, no less", () => {
     const opts = buildRuntimeOptions(baseOpts("http://example.test"), "session-a");
     // #226: the closed set deliberately grew to six with free-pi-buy-tool;
     // 2026-09-01: to seven with free-pi-error-notice (one readable line on a
     // 429); 2026-09-03: to eight with free-pi-header (the startup header,
     // U1/U2); 2026-09-03: to nine with free-pi-docs-tool (the free_pi_docs
     // tool, U2). Any further addition must be a reviewed, deliberate edit —
-    // never accidental. 2026-10-20: to sixteen with free-pi-web-tools (web_search, docs_lookup); to seventeen with free-pi-image-tool (generate_image).
+    // never accidental. 2026-10-20: to sixteen with free-pi-web-tools (web_search, docs_lookup); to seventeen with free-pi-image-tool (generate_image);
+    // 2026-11-19: to eighteen with free-pi-bonus-credits (#23, the input gate
+    // that asks before bonus credits are spent once the free allowance is gone).
     expect([...opts.extensionNames].sort()).toEqual(
       [
         "free-pi-ads",
+        "free-pi-bonus-credits",
         "free-pi-buy-tool",
         "free-pi-commands",
         "free-pi-docs-tool",

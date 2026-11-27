@@ -11,11 +11,23 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/**
+ * Hard ceiling on one auth request. Every other request in the CLI has a
+ * timeout; these did not, and `checkToken` runs on every startup BEFORE the
+ * TUI exists — so one stalled socket (a phone's radio waking up, a DNS
+ * blackhole, a dropped packet) used to hold the whole launch open for as long
+ * as the OS keeps a half-open connection (minutes), with nothing on screen.
+ * A timeout here is a network failure like any other: checkToken's caller
+ * treats it as a non-401 blip and keeps the JWT.
+ */
+const AUTH_REQUEST_TIMEOUT_MS = 10_000;
+
 async function postJson(baseUrl: string, path: string, body: unknown): Promise<Response> {
   return fetch(new URL(path, baseUrl), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
   });
 }
 
@@ -124,6 +136,7 @@ export async function pollForToken(
 export async function checkToken(baseUrl: string, jwt: string): Promise<string | null | undefined> {
   const res = await fetch(new URL("/me", baseUrl), {
     headers: { authorization: `Bearer ${jwt}` },
+    signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
   });
   if (res.status === 401) throw new UnauthorizedError();
   if (!res.ok) return undefined;
@@ -138,6 +151,7 @@ export async function submitUserConsent(baseUrl: string, jwt: string, consentVer
     method: "POST",
     headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
     body: JSON.stringify({ consent_version: consentVersion }),
+    signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
   });
   if (res.status === 401) throw new UnauthorizedError();
   if (!res.ok) throw new Error(`consent submission failed: HTTP ${res.status}`);

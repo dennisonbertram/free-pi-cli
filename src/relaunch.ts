@@ -56,7 +56,15 @@ export async function relaunchViaNpx(latest: string | undefined, deps: RelaunchD
   // The relaunched CLI touches this file as soon as it starts, so a non-zero
   // exit with no file means npx itself failed (offline, bad install) and we
   // should fall back to the manual message rather than pass that code on.
-  const readyDir = mkdtempSync(join(tmpdir(), "free-pi-relaunch-"));
+  // mkdtemp can fail (no writable tmpdir, full disk). That is a relaunch
+  // failure like any other and must reach the caller's manual-message
+  // fallback — not escape as an uncaught throw that kills the launch.
+  let readyDir: string;
+  try {
+    readyDir = mkdtempSync(join(tmpdir(), "free-pi-relaunch-"));
+  } catch {
+    return undefined;
+  }
   const readyFile = join(readyDir, "started");
 
   try {

@@ -31,6 +31,10 @@ describe("buildOpenCommand — per-platform open command", () => {
     expect(buildOpenCommand(URL_PLAIN, "linux")).toEqual({ command: "xdg-open", args: [URL_PLAIN] });
   });
 
+  test("android (Termux) -> termux-open-url <url>, because there is no xdg-open and no /usr on Android", () => {
+    expect(buildOpenCommand(URL_PLAIN, "android")).toEqual({ command: "termux-open-url", args: [URL_PLAIN] });
+  });
+
   test('win32 -> cmd /c start "" <url>, verbatim args (start is a cmd builtin; "" is the explicit window title)', () => {
     expect(buildOpenCommand(URL_PLAIN, "win32")).toEqual({
       command: "cmd",

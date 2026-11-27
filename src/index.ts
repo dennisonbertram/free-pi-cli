@@ -14,12 +14,29 @@
 // message and exits on failure, and only then dynamically imports the real CLI —
 // which is when undici finally loads, on a runtime we've confirmed can handle it.
 import * as zlib from "node:zlib";
+import { HELP_TEXT, parseCliArgs, versionLine } from "./cli-args";
 import { zstdSupportError } from "./node-check";
 
 const err = zstdSupportError(zlib, process.versions.node);
 if (err) {
   console.error(err);
   process.exit(1);
+}
+
+// Local text commands print before the heavy import below. `cli-args` and
+// `version` only reach node builtins + package.json, so `--version`/`--help`
+// stay at bare-Node speed instead of paying main.ts's static import of
+// ./pi-launch -> @earendil-works/pi-coding-agent (~4.5 s on a phone, most of
+// it module-graph loading the CLI never uses for a one-line reply). main()
+// still handles both kinds, so nothing here changes the output.
+const early = parseCliArgs(process.argv.slice(2));
+if (early.kind === "version") {
+  console.log(versionLine());
+  process.exit(0);
+}
+if (early.kind === "help") {
+  console.log(HELP_TEXT);
+  process.exit(0);
 }
 
 // Guard passed: load the real CLI (this is where undici gets pulled in).

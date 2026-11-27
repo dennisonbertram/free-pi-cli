@@ -56,6 +56,12 @@ export function safeBrowserUrl(url: string): string | null {
  * means the string reaches cmd exactly as written, and the URL is
  * server-supplied, so a lone `|` would be a pipe and `>` a redirect. Callers
  * should pass a `safeBrowserUrl()` result; this escape is the second layer.
+ *
+ * Android/Termux: there is no `xdg-open` (no X11, no `/usr`), so the pre-fix
+ * `xdg-open` spawn failed with ENOENT and was swallowed — sign-in and
+ * /buy-credits printed the URL but never opened a browser. Termux's own
+ * `termux-open-url` (termux-tools) hands the URL to the Android intent
+ * system, which is the same thing `open`/`xdg-open` do on desktop.
  */
 export function buildOpenCommand(url: string, platform: NodeJS.Platform): OpenCommand {
   if (platform === "win32") {
@@ -65,6 +71,7 @@ export function buildOpenCommand(url: string, platform: NodeJS.Platform): OpenCo
       windowsVerbatimArguments: true,
     };
   }
+  if (platform === "android") return { command: "termux-open-url", args: [url] };
   return { command: platform === "darwin" ? "open" : "xdg-open", args: [url] };
 }
 
